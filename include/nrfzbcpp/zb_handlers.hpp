@@ -12,6 +12,7 @@ namespace zb
     /* Set Attribute value callback                                       */
     /**********************************************************************/
     using dev_callback_handler_t = void(*)(zb_zcl_device_callback_param_t *);
+    using err_callback_handler_t = void(*)(int err);
     using set_attr_value_handler_t = void (*)(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam);
     struct set_attr_val_gen_desc_t: EPClusterAttributeDesc_t
     {
@@ -118,6 +119,7 @@ namespace zb
     struct dev_cb_handlers_desc
     {
         dev_callback_handler_t default_handler = nullptr;
+        err_callback_handler_t error_handler = nullptr;
     };
 
     struct GenericDeviceCBHandlingNode: GenericNotificationNode<GenericDeviceCBHandlingNode>
@@ -132,23 +134,41 @@ namespace zb
     {
         zb::BufViewPtr bv{bufid};
         auto *pDevParam = bv.param<zb_zcl_device_callback_param_t>();
+        if (!pDevParam)
+        {
+            if (generic.error_handler)
+                generic.error_handler(-1);
+            return;
+        }
         pDevParam->status = RET_OK;
         switch(pDevParam->device_cb_id)
         {
             case ZB_ZCL_SET_ATTR_VALUE_CB_ID:
                 {
+                    auto *pSetVal = &pDevParam->cb_param.set_attr_value_param;
                     if constexpr (sizeof...(handlers))
                     {
-                        auto *pSetVal = &pDevParam->cb_param.set_attr_value_param;
                         static_assert(((handlers.handler != nullptr) && ...), "Invalid handler detected");
-                        [[maybe_unused]]zb_ret_t r = 
-                            ((handlers.fits(pDevParam->endpoint, pSetVal->cluster_id, pSetVal->attr_id) ? handlers.handler(pSetVal, pDevParam), RET_OK : RET_OK), ...);
-
-                        for(auto *pN : SetAttrValHandlingNode::g_List)
+                        auto f = [&](zb::set_attr_val_gen_desc_t h)
                         {
-                            if (pN->h.fits(pDevParam->endpoint, pSetVal->cluster_id, pSetVal->attr_id))
-                                pN->h.handler(pSetVal, pDevParam);
+                            if (h.fits(pDevParam->endpoint, pSetVal->cluster_id, pSetVal->attr_id))
+                                h.handler(pSetVal, pDevParam);
+                        };
+                        (f(handlers),...);
+                        //[[maybe_unused]]zb_ret_t r = 
+                        //    ((handlers.fits(pDevParam->endpoint, pSetVal->cluster_id, pSetVal->attr_id) ? handlers.handler(pSetVal, pDevParam), RET_OK : RET_OK), ...);
+                    }
+
+                    for(auto *pN : SetAttrValHandlingNode::g_List)
+                    {
+                        if (!pN)
+                        {
+                            if (generic.error_handler)
+                                generic.error_handler(-2);
+                            break;
                         }
+                        if (pN->h.fits(pDevParam->endpoint, pSetVal->cluster_id, pSetVal->attr_id))
+                            pN->h.handler(pSetVal, pDevParam);
                     }
                 }
                 break;
@@ -160,7 +180,15 @@ namespace zb
             generic.default_handler(pDevParam);
 
         for(auto *pN : GenericDeviceCBHandlingNode::g_List)
+        {
+            if (!pN)
+            {
+                if (generic.error_handler)
+                    generic.error_handler(-3);
+                break;
+            }
             pN->h(pDevParam);
+        }
     }
 
     /**********************************************************************/

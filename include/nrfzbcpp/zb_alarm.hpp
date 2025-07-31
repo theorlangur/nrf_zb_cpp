@@ -4,9 +4,9 @@
 #include <optional>
 #include <zephyr/sys/reboot.h>
 #include <cstdint>
-#include "lib_function.hpp"
-#include "lib_misc_helpers.hpp"
-#include "../lib/libz_thread_lock.hpp"
+#include <lib_function.hpp>
+#include <lib_misc_helpers.hpp>
+#include <nrf_general/libz_thread_lock.hpp>
 #include "zboss_api_core.h"
 
 #ifndef ALARM_LIST_LOCK_TYPE
