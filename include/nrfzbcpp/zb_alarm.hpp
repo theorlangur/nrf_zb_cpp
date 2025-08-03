@@ -125,7 +125,6 @@ namespace zb
         {
             if (IsRunning())
             {
-                //REMOVE_ME:a workaround for esp zigbee sdk memory leak:
                 zb_schedule_alarm_cancel(on_scheduled_alarm<CB>, h, nullptr);
                 g_TimerList.Free(h);
                 h = TimerList::kInvalidHandle;
