@@ -1,6 +1,7 @@
 #ifndef ZB_DESC_HELPER_TYPES_EP_HPP_
 #define ZB_DESC_HELPER_TYPES_EP_HPP_
 
+#include "lib_ring_buffer.hpp"
 #include "zb_desc_helper_types_cluster.hpp"
 
 namespace zb
@@ -47,7 +48,16 @@ namespace zb
         zb_uint8_t ep;
         zb_uint16_t dev_id;
         zb_uint8_t dev_ver;
+        uint8_t cmd_queue_depth = 1;
     };
+
+    using cmd_id_t = uint8_t;
+    using cmd_send_status_cb_t = void(*)(cmd_id_t, zb_zcl_command_send_status_t *);
+    struct send_cmd_config_t
+    {
+        cmd_send_status_cb_t cb;
+    };
+
 
     template<EPBaseInfo i, class Clusters>
     struct EPDesc
@@ -118,6 +128,40 @@ namespace zb
             return AttributeAccess<ClusterDescType::info(), ClusterDescType::template get_member_description<memPtr>(), checked>{ep};
         }
 
+        inline static cmd_id_t g_cmd_num = 0;
+        using send_request_func_t = void (*)(uint16_t argsPoolIdx);
+        struct CmdRequest
+        {
+            cmd_id_t id;
+            uint8_t args_idx;
+            send_request_func_t send_req;
+            cmd_send_status_cb_t cb;
+        };
+        inline static RingBuffer<CmdRequest, i.cmd_queue_depth> g_CmdQueue;
+
+        static bool send_next_cmd()
+        {
+            if (auto *pNextCmd = g_CmdQueue.peek())
+            {
+                pNextCmd->send_req(pNextCmd->args_idx);
+                //send next request
+                return true;
+            }
+            return false;
+        }
+
+        static void on_send_cmd_cb(zb_uint8_t param)
+        {
+            auto cmd = g_CmdQueue.pop();
+            ZB_ASSERT(cmd);
+            if (cmd->cb)
+            {
+                zb_zcl_command_send_status_t *cmd_send_status = ZB_BUF_GET_PARAM(param, zb_zcl_command_send_status_t);
+                cmd->cb(cmd->id, cmd_send_status);
+            }
+            send_next_cmd();
+        }
+
     public:
         template<auto memPtr>
         auto attr() { return attr_raw<memPtr, false>(); }
@@ -126,44 +170,104 @@ namespace zb
         auto attr_checked() { return attr_raw<memPtr, true>(); }
 
         //TODO: callback support!
-        template<auto memPtr, class... Args>
-        auto send_cmd(Args&&...args)
+        template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
+        std::optional<cmd_id_t> send_cmd(Args&&...args)
         {
             constexpr auto types = validate_mem_ptr<memPtr>();
             using ClusterDescType = decltype(types)::ClusterType;
-            ClusterDescType::template get_cmd_description<memPtr>().template request<ClusterDescType::info(), {.ep = i.ep}>(std::forward<Args>(args)...);
+            constexpr auto cmd_desc = ClusterDescType::template get_cmd_description<memPtr>();
+            using cmd_desc_t = decltype(cmd_desc);
+            auto args_pool_idx = cmd_desc_t::prepare_args(std::forward<Args>(args)...);
+            if (!args_pool_idx) return std::nullopt;
+            auto r = g_CmdQueue.push(
+                    g_cmd_num,
+                    *args_pool_idx,
+                    &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep, .cb=on_send_cmd_cb}>,
+                    cfg.cb
+            );
+            if (!r) return std::nullopt;
+            if (*r == 1) send_next_cmd();
+            return g_cmd_num++;
         }
 
-        template<auto memPtr, class... Args>
+        template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         auto send_cmd_to(uint16_t short_addr, uint8_t ep, Args&&...args)
         {
             constexpr auto types = validate_mem_ptr<memPtr>();
             using ClusterDescType = decltype(types)::ClusterType;
-            ClusterDescType::template get_cmd_description<memPtr>().template request<ClusterDescType::info(), {.ep = i.ep}>(short_addr, ep, std::forward<Args>(args)...);
+            constexpr auto cmd_desc = ClusterDescType::template get_cmd_description<memPtr>();
+            using cmd_desc_t = decltype(cmd_desc);
+            auto args_pool_idx = cmd_desc_t::prepare_args(short_addr, ep, std::forward<Args>(args)...);
+            if (!args_pool_idx) return std::nullopt;
+            auto r = g_CmdQueue.push(
+                    g_cmd_num,
+                    *args_pool_idx,
+                    &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep, .cb=on_send_cmd_cb}>,
+                    cfg.cb
+            );
+            if (!r) return std::nullopt;
+            if (*r == 1) send_next_cmd();
+            return g_cmd_num++;
         }
 
-        template<auto memPtr, class... Args>
+        template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         auto send_cmd_to(zb_ieee_addr_t long_addr, uint8_t ep, Args&&...args)
         {
             constexpr auto types = validate_mem_ptr<memPtr>();
             using ClusterDescType = decltype(types)::ClusterType;
-            ClusterDescType::template get_cmd_description<memPtr>().template request<ClusterDescType::info(), {.ep = i.ep}>(long_addr, ep, std::forward<Args>(args)...);
+            constexpr auto cmd_desc = ClusterDescType::template get_cmd_description<memPtr>();
+            using cmd_desc_t = decltype(cmd_desc);
+            auto args_pool_idx = cmd_desc_t::prepare_args(long_addr, ep, std::forward<Args>(args)...);
+            if (!args_pool_idx) return std::nullopt;
+            auto r = g_CmdQueue.push(
+                    g_cmd_num,
+                    *args_pool_idx,
+                    &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep, .cb=on_send_cmd_cb}>,
+                    cfg.cb
+            );
+            if (!r) return std::nullopt;
+            if (*r == 1) send_next_cmd();
+            return g_cmd_num++;
         }
 
-        template<auto memPtr, class... Args>
+        template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         auto send_cmd_to_group(uint16_t group, Args&&...args)
         {
             constexpr auto types = validate_mem_ptr<memPtr>();
             using ClusterDescType = decltype(types)::ClusterType;
-            ClusterDescType::template get_cmd_description<memPtr>().template request<ClusterDescType::info(), {.ep = i.ep}>(group, std::forward<Args>(args)...);
+            constexpr auto cmd_desc = ClusterDescType::template get_cmd_description<memPtr>();
+            using cmd_desc_t = decltype(cmd_desc);
+            auto args_pool_idx = cmd_desc_t::prepare_args(group, std::forward<Args>(args)...);
+            if (!args_pool_idx) return std::nullopt;
+            auto r = g_CmdQueue.push(
+                    g_cmd_num,
+                    *args_pool_idx,
+                    &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep, .cb=on_send_cmd_cb}>,
+                    cfg.cb
+            );
+            if (!r) return std::nullopt;
+            if (*r == 1) send_next_cmd();
+            return g_cmd_num++;
         }
 
-        template<auto memPtr, class... Args>
+        template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         auto send_cmd_to_binded(uint8_t bind_table_id, Args&&...args)
         {
             constexpr auto types = validate_mem_ptr<memPtr>();
             using ClusterDescType = decltype(types)::ClusterType;
-            ClusterDescType::template get_cmd_description<memPtr>().template request<ClusterDescType::info(), {.ep = i.ep}>(bind_table_id, std::forward<Args>(args)...);
+            constexpr auto cmd_desc = ClusterDescType::template get_cmd_description<memPtr>();
+            using cmd_desc_t = decltype(cmd_desc);
+            auto args_pool_idx = cmd_desc_t::prepare_args(bind_table_id, std::forward<Args>(args)...);
+            if (!args_pool_idx) return std::nullopt;
+            auto r = g_CmdQueue.push(
+                    g_cmd_num,
+                    *args_pool_idx,
+                    &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep, .cb=on_send_cmd_cb}>,
+                    cfg.cb
+            );
+            if (!r) return std::nullopt;
+            if (*r == 1) send_next_cmd();
+            return g_cmd_num++;
         }
 
         template<auto memPtr>
