@@ -149,7 +149,7 @@ namespace zb
                     if constexpr (sizeof...(handlers))
                     {
                         static_assert(((handlers.handler != nullptr) && ...), "Invalid handler detected");
-                        auto f = [&](zb::set_attr_val_gen_desc_t h)
+                        auto f = [&](const zb::set_attr_val_gen_desc_t &h)
                         {
                             if (h.fits(pDevParam->endpoint, pSetVal->cluster_id, pSetVal->attr_id))
                                 h.handler(pSetVal, pDevParam);
