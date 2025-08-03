@@ -152,12 +152,15 @@ namespace zb
 
         static void on_send_cmd_cb(zb_uint8_t param)
         {
-            auto cmd = g_CmdQueue.pop();
-            ZB_ASSERT(cmd);
-            if (cmd->cb)
+            auto *pCurrent = g_CmdQueue.peek();
+            ZB_ASSERT(pCurrent);
+            auto cmd_id = pCurrent->id;
+            auto cb = pCurrent->cb;
+            g_CmdQueue.drop();
+            if (cb)
             {
                 zb_zcl_command_send_status_t *cmd_send_status = ZB_BUF_GET_PARAM(param, zb_zcl_command_send_status_t);
-                cmd->cb(cmd->id, cmd_send_status);
+                cb(cmd_id, cmd_send_status);
             }
             send_next_cmd();
         }
