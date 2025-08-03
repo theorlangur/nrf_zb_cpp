@@ -3,6 +3,7 @@
 
 #include "lib_object_pool.hpp"
 #include "zb_desc_helper_types_attr.hpp"
+#include <algorithm>
 #include <optional>
 
 namespace zb
@@ -200,7 +201,7 @@ namespace zb
     {
         uint8_t cmd_id;
         uint16_t manuf_code = ZB_ZCL_MANUF_CODE_INVALID;
-        uint16_t pool_size = 1;
+        uint8_t pool_size = 1;
     };
     //as NTTP to cluster description template type
     template<cmd_cfg_t cfg, class... Args>
@@ -212,6 +213,8 @@ namespace zb
         using args_ret_t = std::optional<pool_idx_type_t>;
         static PoolType g_Pool;
         using RequestPtr = PoolType::template Ptr<g_Pool>;
+
+        static constexpr auto pool_size() { return cfg.pool_size; }
 
         static constexpr uint8_t kCmdId = cfg.cmd_id;
 
@@ -304,8 +307,19 @@ namespace zb
     template<auto... cmdMemberDesc>
     struct cluster_commands_desc_t
     {
+        static constexpr size_t kCmdCount = sizeof...(cmdMemberDesc);
         template<auto memPtr>
         static constexpr inline auto get_cmd_description() { return find_cluster_cmd_desc_t<memPtr, cmdMemberDesc...>::cmd_desc(); }
+
+        static constexpr inline auto max_command_pool_size() 
+        { 
+            if constexpr (kCmdCount >= 2)
+                return std::max(std::initializer_list<uint8_t>{mem_ptr_traits<decltype(cmdMemberDesc)>::MemberType::pool_size()...}); 
+            else if constexpr (kCmdCount == 1)
+                return (mem_ptr_traits<decltype(cmdMemberDesc)>::MemberType::pool_size(),...);
+            else
+                return 0;
+        }
 
         template<auto... cmdMemberDesc2>
         friend constexpr auto operator+(cluster_commands_desc_t<cmdMemberDesc...> lhs, cluster_commands_desc_t<cmdMemberDesc2...> rhs)
@@ -321,6 +335,7 @@ namespace zb
         static constexpr inline auto info() { return ci; }
         static constexpr inline size_t count_members_with_access(Access a) { return attributes.count_members_with_access(a); }
         static constexpr inline size_t count_cvc_members() { return attributes.count_cvc_members(); }
+        static constexpr inline auto max_command_pool_size() { return cmds.max_command_pool_size(); }
 
         template<auto memPtr>
         static constexpr inline auto get_member_description() { return attributes.template get_member_description<memPtr>(); }
@@ -355,6 +370,15 @@ namespace zb
         void operator=(TClusterList const&) = delete;
         void operator=(TClusterList &&) = delete;
 
+        static constexpr auto max_command_pool_size() 
+        { 
+            if constexpr (N >= 2)
+                return std::max(std::initializer_list<uint8_t>{T::max_command_pool_size()...}); 
+            else if constexpr(N == 1)
+                return (T::max_command_pool_size(),...); 
+            else
+                return 0;
+        }
         static constexpr size_t reporting_attributes_count() { return (T::attributes_with_access(Access::Report) + ... + 0); }
         static constexpr size_t cvc_attributes_count() { return (T::cvc_attributes() + ... + 0); }
 

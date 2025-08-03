@@ -58,7 +58,7 @@ namespace zb
         }
 
         operator zb_zcl_attr_t*() { return attributes; }
-
+        constexpr static auto max_command_pool_size() { return Tag::max_command_pool_size(); }
         constexpr static bool is_role(Role r) { return Tag::info().role == r; }
         constexpr static size_t attributes_with_access(Access r) { return Tag::count_members_with_access(r); }
         constexpr static size_t cvc_attributes() { return Tag::count_cvc_members(); }

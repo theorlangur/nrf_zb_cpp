@@ -48,7 +48,7 @@ namespace zb
         zb_uint8_t ep;
         zb_uint16_t dev_id;
         zb_uint8_t dev_ver;
-        uint8_t cmd_queue_depth = 1;
+        uint8_t cmd_queue_depth = 0;//0 - auto
     };
 
     using cmd_id_t = uint8_t;
@@ -63,6 +63,8 @@ namespace zb
     struct EPDesc
     {
         using SimpleDesc = TSimpleDesc<Clusters::server_cluster_count(), Clusters::client_cluster_count()>;
+        static constexpr auto kCmdQueueSize = i.cmd_queue_depth ? i.cmd_queue_depth : Clusters::max_command_pool_size();
+        static_assert(kCmdQueueSize >= Clusters::max_command_pool_size(), "It's not allowed to set the command queue size lower than max pool size among all commands");
 
         template<class T1, class T2, class... T> requires std::is_same_v<TClusterList<T1, T2, T...>, Clusters>
         constexpr EPDesc(TClusterList<T1, T2, T...> &clusters):
@@ -137,7 +139,7 @@ namespace zb
             send_request_func_t send_req;
             cmd_send_status_cb_t cb;
         };
-        inline static RingBuffer<CmdRequest, i.cmd_queue_depth> g_CmdQueue;
+        inline static RingBuffer<CmdRequest, kCmdQueueSize> g_CmdQueue;
 
         static bool send_next_cmd()
         {

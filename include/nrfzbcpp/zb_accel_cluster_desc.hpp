@@ -48,8 +48,8 @@ namespace zb
                 cluster_mem_desc_t{.m = &T::x,.id = 0x0000, .a=Access::RP},
                 cluster_mem_desc_t{.m = &T::y,.id = 0x0001, .a=Access::RP},
                 cluster_mem_desc_t{.m = &T::z,.id = 0x0002, .a=Access::RP}
-            >{},
-            cluster_commands_desc_t<
+            >{}
+            ,cluster_commands_desc_t<
                  &T::on_event
             >{}
         >{};
