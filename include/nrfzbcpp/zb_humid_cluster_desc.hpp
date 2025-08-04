@@ -21,16 +21,19 @@ namespace zb
         static float ToRelH(uint16_t v) { return float(v) / 100.f; }
     };
 
-    template<> constexpr auto get_cluster_description<zb_zcl_rel_humid_basic_t>()
-    {
-        using T = zb_zcl_rel_humid_basic_t;
-        return cluster_struct_desc_t<
-            {.id = kZB_ZCL_CLUSTER_ID_REL_HUMIDITY},
-            cluster_attributes_desc_t<
-                cluster_mem_desc_t{.m = &T::measured_value,.id = 0x0000, .a=Access::RP}
-            >{}
-        >{};
-    }
+    template<>
+    struct zcl_description_t<zb_zcl_rel_humid_basic_t> {
+        static constexpr auto get()
+        {
+            using T = zb_zcl_rel_humid_basic_t;
+            return cluster_struct_desc_t<
+                {.id = kZB_ZCL_CLUSTER_ID_REL_HUMIDITY},
+                cluster_attributes_desc_t<
+                    cluster_mem_desc_t{.m = &T::measured_value,.id = 0x0000, .a=Access::RP}
+                >{}
+            >{};
+        }
+    };
 
     struct zb_zcl_rel_humid_t: zb_zcl_rel_humid_basic_t
     {
@@ -38,28 +41,33 @@ namespace zb
         uint16_t max_measured_value;
     };
 
-    template<> constexpr auto get_cluster_description<zb_zcl_rel_humid_t>()
-    {
-        using T = zb_zcl_rel_humid_t;
-        return get_cluster_description<zb_zcl_rel_humid_basic_t>() 
-            + cluster_struct_desc_t<
-            {.id = kZB_ZCL_CLUSTER_ID_REL_HUMIDITY},
-            cluster_attributes_desc_t<
-                cluster_mem_desc_t{.m = &T::min_measured_value,.id = 0x0001},
-                cluster_mem_desc_t{.m = &T::max_measured_value,.id = 0x0002}
-            >{}
-        >{};
-    }
+    template<>
+    struct zcl_description_t<zb_zcl_rel_humid_t> {
+        static constexpr auto get()
+        {
+            using T = zb_zcl_rel_humid_t;
+            return zcl_description_t<zb_zcl_rel_humid_basic_t>::get() 
+                + cluster_struct_desc_t<
+                {.id = kZB_ZCL_CLUSTER_ID_REL_HUMIDITY},
+                cluster_attributes_desc_t<
+                    cluster_mem_desc_t{.m = &T::min_measured_value,.id = 0x0001},
+                    cluster_mem_desc_t{.m = &T::max_measured_value,.id = 0x0002}
+                >{}
+            >{};
+        }
+    };
 
     struct zb_zcl_rel_humid_ext_t: zb_zcl_rel_humid_t
     {
         uint16_t tolerance;
     };
 
-    template<> constexpr auto get_cluster_description<zb_zcl_rel_humid_ext_t>()
+    template<>
+    struct zcl_description_t<zb_zcl_rel_humid_ext_t> {
+    static constexpr auto get_cluster_description()
     {
         using T = zb_zcl_rel_humid_ext_t;
-        return get_cluster_description<zb_zcl_rel_humid_t>() 
+        return zcl_description_t<zb_zcl_rel_humid_t>::get() 
             + cluster_struct_desc_t<
             {.id = kZB_ZCL_CLUSTER_ID_REL_HUMIDITY},
             cluster_attributes_desc_t<
@@ -67,6 +75,7 @@ namespace zb
             >{}
         >{};
     }
+    };
 DEFINE_NULL_CLUSTER_INIT_FOR(kZB_ZCL_CLUSTER_ID_REL_HUMIDITY);
 }
 #endif

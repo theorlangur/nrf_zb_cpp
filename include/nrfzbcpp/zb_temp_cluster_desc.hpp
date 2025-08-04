@@ -21,16 +21,19 @@ namespace zb
         static float ToC(int16_t centiC) { return float(centiC) / 100.f; }
     };
 
-    template<> constexpr auto get_cluster_description<zb_zcl_temp_basic_t>()
-    {
-        using T = zb_zcl_temp_basic_t;
-        return cluster_struct_desc_t<
+    template<>
+    struct zcl_description_t<zb_zcl_temp_basic_t> {
+        static constexpr auto get()
+        {
+            using T = zb_zcl_temp_basic_t;
+            return cluster_struct_desc_t<
             {.id = kZB_ZCL_CLUSTER_ID_TEMP},
-            cluster_attributes_desc_t<
-                cluster_mem_desc_t{.m = &T::measured_value,.id = 0x0000, .a=Access::RP}
+                cluster_attributes_desc_t<
+                    cluster_mem_desc_t{.m = &T::measured_value,.id = 0x0000, .a=Access::RP}
             >{}
-        >{};
-    }
+            >{};
+        }
+    };
 
     struct zb_zcl_temp_t: zb_zcl_temp_basic_t
     {
@@ -38,35 +41,41 @@ namespace zb
         int16_t max_measured_value;
     };
 
-    template<> constexpr auto get_cluster_description<zb_zcl_temp_t>()
-    {
-        using T = zb_zcl_temp_t;
-        return get_cluster_description<zb_zcl_temp_basic_t>() 
-            + cluster_struct_desc_t<
-            {.id = kZB_ZCL_CLUSTER_ID_TEMP},
-            cluster_attributes_desc_t<
-                cluster_mem_desc_t{.m = &T::min_measured_value,.id = 0x0001},
-                cluster_mem_desc_t{.m = &T::max_measured_value,.id = 0x0002}
-            >{}
-        >{};
-    }
+    template<>
+    struct zcl_description_t<zb_zcl_temp_t> {
+        static constexpr auto get()
+        {
+            using T = zb_zcl_temp_t;
+            return zcl_description_t<zb_zcl_temp_basic_t>::get() 
+                + cluster_struct_desc_t<
+                {.id = kZB_ZCL_CLUSTER_ID_TEMP},
+                cluster_attributes_desc_t<
+                    cluster_mem_desc_t{.m = &T::min_measured_value,.id = 0x0001},
+                    cluster_mem_desc_t{.m = &T::max_measured_value,.id = 0x0002}
+                >{}
+            >{};
+        }
+    };
 
     struct zb_zcl_temp_ext_t: zb_zcl_temp_t
     {
         uint16_t tolerance;
     };
 
-    template<> constexpr auto get_cluster_description<zb_zcl_temp_ext_t>()
-    {
-        using T = zb_zcl_temp_ext_t;
-        return get_cluster_description<zb_zcl_temp_t>() 
-            + cluster_struct_desc_t<
-            {.id = kZB_ZCL_CLUSTER_ID_TEMP},
-            cluster_attributes_desc_t<
-                cluster_mem_desc_t{.m = &T::tolerance,.id = 0x0003}
-            >{}
-        >{};
-    }
+    template<>
+    struct zcl_description_t<zb_zcl_temp_ext_t> {
+        static constexpr auto get()
+        {
+            using T = zb_zcl_temp_ext_t;
+            return zcl_description_t<zb_zcl_temp_t>::get() 
+                + cluster_struct_desc_t<
+                {.id = kZB_ZCL_CLUSTER_ID_TEMP},
+                cluster_attributes_desc_t<
+                    cluster_mem_desc_t{.m = &T::tolerance,.id = 0x0003}
+                >{}
+            >{};
+        }
+    };
 
 DEFINE_NULL_CLUSTER_INIT_FOR(kZB_ZCL_CLUSTER_ID_TEMP);
 }

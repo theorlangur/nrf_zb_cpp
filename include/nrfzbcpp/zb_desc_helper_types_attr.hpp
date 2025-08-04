@@ -38,7 +38,7 @@ namespace zb
     template<class StructTag, size_t N>
     struct TAttributeList
     {
-        using Tag = decltype(get_cluster_description<StructTag>());
+        using Tag = decltype(zcl_description_t<StructTag>::get());
 
         TAttributeList(TAttributeList const&) = delete;
         TAttributeList(TAttributeList &&) = delete;

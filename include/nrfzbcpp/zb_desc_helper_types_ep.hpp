@@ -117,7 +117,7 @@ namespace zb
 
             using ClassType = mem_ptr_traits<MemPtrType>::ClassType;
             //using MemType = mem_ptr_traits<MemPtrType>::MemberType;
-            using ClusterDescType = decltype(get_cluster_description<ClassType>());
+            using ClusterDescType = decltype(zcl_description_t<ClassType>::get());
             static_assert(Clusters::has_info(ClusterDescType::info()), "Requested cluster is not part of the EP");
             return ClusterTypeInfo<MemPtrType, ClassType, ClusterDescType>{};
         }
@@ -283,7 +283,7 @@ namespace zb
 
             using ClassType = mem_ptr_traits<MemPtrType>::ClassType;
             //using MemType = mem_ptr_traits<MemPtrType>::MemberType;
-            using ClusterDescType = decltype(get_cluster_description<ClassType>());
+            using ClusterDescType = decltype(zcl_description_t<ClassType>::get());
             static_assert(Clusters::has_info(ClusterDescType::info()), "Requested cluster is not part of the EP");
             return {.ep = i.ep, .cluster = ClusterDescType::info().id, .attribute = ClusterDescType::template get_member_description<memPtr>().id};
         }
@@ -291,7 +291,7 @@ namespace zb
         template<class Cluster>
         constexpr EPClusterAttributeDesc_t handler_filter_for_cluster()
         {
-            using ClusterDescType = decltype(get_cluster_description<Cluster>());
+            using ClusterDescType = decltype(zcl_description_t<Cluster>::get());
             static_assert(Clusters::has_info(ClusterDescType::info()), "Requested cluster is not part of the EP");
             return {.ep = i.ep, .cluster = ClusterDescType::info().id};
         }

@@ -6,7 +6,7 @@
 namespace zb
 {
     template<class T>
-    using ToAttributeListType = decltype(zb::cluster_struct_to_attr_list(std::declval<T&>(), zb::get_cluster_description<T>()));
+    using ToAttributeListType = decltype(zb::cluster_struct_to_attr_list(std::declval<T&>(), zb::zcl_description_t<T>::get()));
 
     template<class T> struct mem_tag_t{};
 
@@ -46,14 +46,14 @@ namespace zb
         static constexpr zb_uint8_t ep_id() { return i.ep; }
 
         constexpr EPDescSelfContained(ClusterTypes&...s):
-            attributes{ zb::cluster_struct_to_attr_list(s, zb::get_cluster_description<ClusterTypes>())... },
+            attributes{ zb::cluster_struct_to_attr_list(s, zb::zcl_description_t<ClusterTypes>::get())... },
             clusters{attributes.get(mem_tag_t<ClusterTypes>{})...},
             ep{clusters}
         {
         }
 
         constexpr EPDescSelfContained(ep_args_t<i, ClusterTypes...> arg):
-            attributes{ zb::cluster_struct_to_attr_list(arg.get(mem_tag_t<ClusterTypes>{}), zb::get_cluster_description<ClusterTypes>())... },
+            attributes{ zb::cluster_struct_to_attr_list(arg.get(mem_tag_t<ClusterTypes>{}), zb::zcl_description_t<ClusterTypes>::get())... },
             clusters{attributes.get(mem_tag_t<ClusterTypes>{})...},
             ep{clusters}
         {

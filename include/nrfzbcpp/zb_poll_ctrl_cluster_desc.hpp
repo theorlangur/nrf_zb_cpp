@@ -40,34 +40,40 @@ namespace zb
         uint16_t fast_poll_timeout_max = 0;
     };
 
-    template<> constexpr auto get_cluster_description<zb_zcl_poll_ctrl_basic_t>()
-    {
-        using T = zb_zcl_poll_ctrl_basic_t;
-        return cluster_struct_desc_t<
-            {.id = kZB_ZCL_CLUSTER_ID_POLL_CTRL},
-            cluster_attributes_desc_t<
-                cluster_mem_desc_t{.m = &T::check_in_interval,  .id = 0x0000, .a=Access::RW},
-                cluster_mem_desc_t{.m = &T::long_poll_interval, .id = 0x0001, .a=Access::Read},
-                cluster_mem_desc_t{.m = &T::short_poll_interval,.id = 0x0002, .a=Access::Read},
-                cluster_mem_desc_t{.m = &T::fast_poll_timeout,  .id = 0x0003, .a=Access::RW},
-                cluster_mem_desc_t{.m = &T::srv_cfg,  .id = 0xeffeU, .a=Access::Internal, .type=Type::Null}
-            >{}
-        >{};
-    }
+    template<>
+    struct zcl_description_t<zb_zcl_poll_ctrl_basic_t> {
+        static constexpr auto get()
+        {
+            using T = zb_zcl_poll_ctrl_basic_t;
+            return cluster_struct_desc_t<
+                {.id = kZB_ZCL_CLUSTER_ID_POLL_CTRL},
+                cluster_attributes_desc_t<
+                    cluster_mem_desc_t{.m = &T::check_in_interval,  .id = 0x0000, .a=Access::RW},
+                    cluster_mem_desc_t{.m = &T::long_poll_interval, .id = 0x0001, .a=Access::Read},
+                    cluster_mem_desc_t{.m = &T::short_poll_interval,.id = 0x0002, .a=Access::Read},
+                    cluster_mem_desc_t{.m = &T::fast_poll_timeout,  .id = 0x0003, .a=Access::RW},
+                    cluster_mem_desc_t{.m = &T::srv_cfg,  .id = 0xeffeU, .a=Access::Internal, .type=Type::Null}
+                >{}
+            >{};
+        }
+    };
 
-    template<> constexpr auto get_cluster_description<zb_zcl_poll_ctrl_t>()
-    {
-        using T = zb_zcl_poll_ctrl_t;
-        return get_cluster_description<zb_zcl_poll_ctrl_basic_t>() 
-            + cluster_struct_desc_t<
-            {.id = kZB_ZCL_CLUSTER_ID_POLL_CTRL},
-            cluster_attributes_desc_t<
-                cluster_mem_desc_t{.m = &T::check_in_interval_min, .id = 0x0004, .a=Access::Read},
-                cluster_mem_desc_t{.m = &T::long_poll_interval_min,.id = 0x0005, .a=Access::Read},
-                cluster_mem_desc_t{.m = &T::fast_poll_timeout_max, .id = 0x0006, .a=Access::Read}
-            >{}
-        >{};
-    }
+    template<>
+    struct zcl_description_t<zb_zcl_poll_ctrl_t> {
+        static constexpr auto get()
+        {
+            using T = zb_zcl_poll_ctrl_t;
+            return zcl_description_t<zb_zcl_poll_ctrl_basic_t>::get() 
+                + cluster_struct_desc_t<
+                {.id = kZB_ZCL_CLUSTER_ID_POLL_CTRL},
+                cluster_attributes_desc_t<
+                    cluster_mem_desc_t{.m = &T::check_in_interval_min, .id = 0x0004, .a=Access::Read},
+                    cluster_mem_desc_t{.m = &T::long_poll_interval_min,.id = 0x0005, .a=Access::Read},
+                    cluster_mem_desc_t{.m = &T::fast_poll_timeout_max, .id = 0x0006, .a=Access::Read}
+                >{}
+            >{};
+        }
+    };
 
 DEFINE_NULL_CLUSTER_INIT_FOR(kZB_ZCL_CLUSTER_ID_POLL_CTRL);
 }

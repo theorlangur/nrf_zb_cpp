@@ -11,12 +11,16 @@ namespace zb
     template<class T>
     concept ZigbeeEPSelfContained = requires { typename T::ClusterListType; requires  ZigbeeCluster<typename T::ClusterListType>; };
 
-    //this template function is to be specialized for every cluster struct
+    //this template class is to be specialized for every cluster struct
     template<class zb_struct>
-    constexpr inline auto get_cluster_description() { static_assert(sizeof(zb_struct) == 0, "Cluster description not found for type"); return std::false_type{}; }
+    struct zcl_description_t
+    {
+        static constexpr inline auto get() { static_assert(sizeof(zb_struct) == 0, "Cluster description not found for type"); return std::false_type{}; }
+    };
+
 
     template<class zb_struct>
-    concept ZigbeeClusterStruct = requires { requires !std::is_same_v<decltype(zb::get_cluster_description<zb_struct>()), std::false_type>; };
+    concept ZigbeeClusterStruct = requires { requires !std::is_same_v<decltype(zb::zcl_description_t<zb_struct>::get()), std::false_type>; };
 
     template<class T>//TAttributeList<...>
     concept ZigbeeAttributeList = requires { typename T::Tag; requires ZigbeeClusterStruct<typename T::Tag>; };

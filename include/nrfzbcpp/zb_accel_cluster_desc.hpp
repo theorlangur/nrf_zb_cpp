@@ -39,21 +39,23 @@ namespace zb
         [[no_unique_address]]cluster_std_cmd_desc_t<kZB_ZCL_ACCEL_CMD_ON_EVENT, EventArgs> on_event;
     };
 
-    template<> constexpr auto get_cluster_description<zb_zcl_accel_basic_t>()
-    {
-        using T = zb_zcl_accel_basic_t;
-        return cluster_struct_desc_t<
-            cluster_info_t{.id = kZB_ZCL_CLUSTER_ID_ACCEL},
-            cluster_attributes_desc_t<
-                cluster_mem_desc_t{.m = &T::x,.id = 0x0000, .a=Access::RP},
-                cluster_mem_desc_t{.m = &T::y,.id = 0x0001, .a=Access::RP},
-                cluster_mem_desc_t{.m = &T::z,.id = 0x0002, .a=Access::RP}
-            >{}
-            ,cluster_commands_desc_t<
-                 &T::on_event
-            >{}
-        >{};
-    }
+    template<> struct zcl_description_t<zb_zcl_accel_basic_t> {
+        static constexpr auto get()
+        {
+            using T = zb_zcl_accel_basic_t;
+            return cluster_struct_desc_t<
+                cluster_info_t{.id = kZB_ZCL_CLUSTER_ID_ACCEL},
+                cluster_attributes_desc_t<
+                    cluster_mem_desc_t{.m = &T::x,.id = 0x0000, .a=Access::RP},
+                    cluster_mem_desc_t{.m = &T::y,.id = 0x0001, .a=Access::RP},
+                    cluster_mem_desc_t{.m = &T::z,.id = 0x0002, .a=Access::RP}
+                >{}
+                ,cluster_commands_desc_t<
+                     &T::on_event
+                >{}
+            >{};
+        }
+    };
 
 DEFINE_NULL_CLUSTER_INIT_FOR(kZB_ZCL_CLUSTER_ID_ACCEL);
 }
