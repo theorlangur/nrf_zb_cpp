@@ -132,6 +132,7 @@ namespace zb
 
     struct request_runtime_args_base_t
     {
+        zb_callback_t cb;
         zb_addr_u dst_addr;
         uint8_t dst_ep;
         AddrMode addr_mode;
@@ -171,13 +172,13 @@ namespace zb
         using request_runtime_arg_t<I, Args>::get...;
         using request_runtime_arg_t<I, Args>::copy_to...;
 
-        request_runtime_args_var_t(uint16_t short_a, uint8_t e, AddrMode _addr_mode, Args&&... args):
-            request_runtime_args_base_t{.dst_addr = {.addr_short = short_a} , .dst_ep = e, .addr_mode = _addr_mode},
+        request_runtime_args_var_t(zb_callback_t cb, uint16_t short_a, uint8_t e, AddrMode _addr_mode, Args&&... args):
+            request_runtime_args_base_t{.cb = cb, .dst_addr = {.addr_short = short_a} , .dst_ep = e, .addr_mode = _addr_mode},
             request_runtime_arg_t<I, Args>{args}...
         {}
 
-        request_runtime_args_var_t(zb_ieee_addr_t long_a, uint8_t e, AddrMode _addr_mode, Args&&... args):
-            request_runtime_args_base_t{.dst_ep = e, .addr_mode = _addr_mode},
+        request_runtime_args_var_t(zb_callback_t cb, zb_ieee_addr_t long_a, uint8_t e, AddrMode _addr_mode, Args&&... args):
+            request_runtime_args_base_t{.cb = cb, .dst_ep = e, .addr_mode = _addr_mode},
             request_runtime_arg_t<I, Args>{args}...
         {
             std::memcpy(dst_addr.addr_long, long_a, sizeof(zb_ieee_addr_t));
@@ -193,7 +194,6 @@ namespace zb
     struct request_args_t
     {
         uint8_t ep;
-        zb_callback_t cb = nullptr;
         uint16_t profile_id = ZB_AF_HA_PROFILE_ID;
     };
 
@@ -219,45 +219,43 @@ namespace zb
         static constexpr uint8_t kCmdId = cfg.cmd_id;
 
         template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-        static args_ret_t prepare_args(TArgs&&... args) { 
-            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(uint16_t(0), uint8_t(0), AddrMode::NoAddr_NoEP, std::forward<Args>(args)...)); 
+        static args_ret_t prepare_args(zb_callback_t cb, TArgs&&... args) { 
+            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, uint16_t(0), uint8_t(0), AddrMode::NoAddr_NoEP, std::forward<Args>(args)...)); 
             return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
         }
 
         template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-        static args_ret_t prepare_args(uint16_t short_addr, uint8_t ep, TArgs&&... args) 
+        static args_ret_t prepare_args(zb_callback_t cb, uint16_t short_addr, uint8_t ep, TArgs&&... args) 
         { 
-            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(short_addr, ep, AddrMode::Dst16EP, std::forward<Args>(args)...)); 
+            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, short_addr, ep, AddrMode::Dst16EP, std::forward<Args>(args)...)); 
             return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
         }
 
         template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-        static void prepare_args(zb_ieee_addr_t ieee_addr, uint8_t ep, TArgs&&... args)
+        static void prepare_args(zb_callback_t cb, zb_ieee_addr_t ieee_addr, uint8_t ep, TArgs&&... args)
         {
-            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(ieee_addr, ep, AddrMode::Dst64EP, std::forward<Args>(args)...)); 
+            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, ieee_addr, ep, AddrMode::Dst64EP, std::forward<Args>(args)...)); 
             return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
         }
 
         template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-        static args_ret_t prepare_args(uint16_t group_addr, TArgs&&... args) 
+        static args_ret_t prepare_args(zb_callback_t cb, uint16_t group_addr, TArgs&&... args) 
         { 
-            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(group_addr, uint8_t(0), AddrMode::Group_NoEP, std::forward<Args>(args)...)); 
+            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, group_addr, uint8_t(0), AddrMode::Group_NoEP, std::forward<Args>(args)...)); 
             return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
         }
 
         template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-        static args_ret_t prepare_args(uint8_t bind_table_id, TArgs&&... args) 
+        static args_ret_t prepare_args(zb_callback_t cb, uint8_t bind_table_id, TArgs&&... args) 
         { 
-            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(uint16_t(0), bind_table_id, AddrMode::EPAsBindTableId, std::forward<Args>(args)...)); 
+            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, uint16_t(0), bind_table_id, AddrMode::EPAsBindTableId, std::forward<Args>(args)...)); 
             return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
         }
             
         template<cluster_info_t i, request_args_t r>
         static void request(uint16_t argsPoolIdx)
         {
-            zigbee_get_out_buf_delayed_ext(
-                    &on_out_buf_ready<i, {.ep = r.ep, .cb = r.cb, .profile_id = r.profile_id}>
-                    , argsPoolIdx, 0);
+            zigbee_get_out_buf_delayed_ext( &on_out_buf_ready<i, r>, argsPoolIdx, 0);
         }
 
         template<cluster_info_t i, request_args_t r>
@@ -278,9 +276,9 @@ namespace zb
             ZB_ZCL_GET_SEQ_NUM();
             uint8_t* ptr = (uint8_t*)zb_zcl_start_command_header(bufid, f.u8, manu_code, cfg.cmd_id, nullptr);
             ptr = pArgs->copy_to_buffer(ptr);
-            zb_ret_t ret = zb_zcl_finish_and_send_packet(bufid, ptr, &pArgs->dst_addr, (uint8_t)pArgs->addr_mode, pArgs->dst_ep, r.ep, r.profile_id, i.id, r.cb);
-            if (RET_OK != ret && r.cb)
-                r.cb(uint8_t(ret));
+            zb_ret_t ret = zb_zcl_finish_and_send_packet(bufid, ptr, &pArgs->dst_addr, (uint8_t)pArgs->addr_mode, pArgs->dst_ep, r.ep, r.profile_id, i.id, pArgs->cb);
+            if (RET_OK != ret && pArgs->cb)
+                pArgs->cb(0);
         }
     };
     template<cmd_cfg_t cfg, class... Args>
