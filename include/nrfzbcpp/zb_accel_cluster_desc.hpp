@@ -31,18 +31,24 @@ namespace zb
         uint32_t flip_z : 1;
     };
 
+    struct accel_config_t
+    {
+        uint8_t on_event_pool_size = 0;
+    };
+
+    template<accel_config_t cfg = {}>
     struct zb_zcl_accel_basic_t
     {
         float x;//1.f == 1G
         float y;//1.f == 1G
         float z;//1.f == 1G
-        [[no_unique_address]]cluster_std_cmd_desc_t<kZB_ZCL_ACCEL_CMD_ON_EVENT, EventArgs> on_event;
+        [[no_unique_address]]cluster_std_cmd_desc_with_pool_size_t<kZB_ZCL_ACCEL_CMD_ON_EVENT, cfg.on_event_pool_size, EventArgs> on_event;
     };
 
-    template<> struct zcl_description_t<zb_zcl_accel_basic_t> {
+    template<accel_config_t cfg> struct zcl_description_t<zb_zcl_accel_basic_t<cfg>> {
         static constexpr auto get()
         {
-            using T = zb_zcl_accel_basic_t;
+            using T = zb_zcl_accel_basic_t<cfg>;
             return cluster_struct_desc_t<
                 cluster_info_t{.id = kZB_ZCL_CLUSTER_ID_ACCEL},
                 cluster_attributes_desc_t<

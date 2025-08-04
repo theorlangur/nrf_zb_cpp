@@ -289,6 +289,9 @@ namespace zb
     template<zb_uint8_t cmd_id, class... Args>
     struct cluster_std_cmd_desc_t: cluster_cmd_desc_t<{.cmd_id = cmd_id}, Args...> {};
 
+    template<zb_uint8_t cmd_id, uint8_t pool_size, class... Args>
+    struct cluster_std_cmd_desc_with_pool_size_t: cluster_cmd_desc_t<{.cmd_id = cmd_id, .pool_size = pool_size ? pool_size : cmd_cfg_t{}.pool_size}, Args...> {};
+
     template<auto... attributeMemberDesc>
     struct cluster_attributes_desc_t
     {
