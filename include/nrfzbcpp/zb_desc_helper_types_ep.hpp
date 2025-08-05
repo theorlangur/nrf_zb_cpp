@@ -74,8 +74,8 @@ namespace zb
         static constexpr auto kCmdQueueSize = i.cmd_queue_depth ? i.cmd_queue_depth : Clusters::max_command_pool_size();
         static_assert(kCmdQueueSize >= Clusters::max_command_pool_size(), "It's not allowed to set the command queue size lower than max pool size among all commands");
 
-        template<class T1, class T2, class... T> requires std::is_same_v<TClusterList<T1, T2, T...>, Clusters>
-        constexpr EPDesc(TClusterList<T1, T2, T...> &clusters):
+        template<class T1, class T2, class... T> requires std::is_same_v<TClusterList<i.ep, T1, T2, T...>, Clusters>
+        constexpr EPDesc(TClusterList<i.ep, T1, T2, T...> &clusters):
             simple_desc{ 
                 {
                     .endpoint = i.ep, 

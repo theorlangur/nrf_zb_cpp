@@ -14,6 +14,7 @@ namespace zb
 {
     static constexpr uint16_t kZB_ZCL_CLUSTER_ID_ACCEL = 0xfc00;
     static constexpr uint8_t kZB_ZCL_ACCEL_CMD_ON_EVENT = 100;
+    static constexpr uint8_t kZB_ZCL_ACCEL_CMD_ON_IN_EVENT = 101;
     struct EventArgs
     {
         uint32_t tap : 1;
@@ -31,6 +32,12 @@ namespace zb
         uint32_t flip_z : 1;
     };
 
+    struct InEvent
+    {
+        uint8_t param1;
+        uint16_t param2;
+    }ZB_PACKED_STRUCT;
+
     struct accel_config_t
     {
         uint8_t on_event_pool_size = 0;
@@ -43,6 +50,7 @@ namespace zb
         float y;//1.f == 1G
         float z;//1.f == 1G
         [[no_unique_address]]cluster_std_cmd_desc_with_pool_size_t<kZB_ZCL_ACCEL_CMD_ON_EVENT, cfg.on_event_pool_size, EventArgs> on_event;
+        cluster_in_cmd_desc_t<kZB_ZCL_ACCEL_CMD_ON_IN_EVENT, InEvent> on_in_event;
     };
 
     template<accel_config_t cfg> struct zcl_description_t<zb_zcl_accel_basic_t<cfg>> {
@@ -58,6 +66,7 @@ namespace zb
                 >{}
                 ,cluster_commands_desc_t<
                      &T::on_event
+                     ,&T::on_in_event
                 >{}
             >{};
         }

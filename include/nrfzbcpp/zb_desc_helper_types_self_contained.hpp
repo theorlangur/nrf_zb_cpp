@@ -41,7 +41,7 @@ namespace zb
     template<EPBaseInfo i, ZigbeeClusterStruct... ClusterTypes>
     struct EPDescSelfContained
     {
-        using ClusterListType = zb::TClusterList<ToAttributeListType<ClusterTypes>...>;
+        using ClusterListType = zb::TClusterList<i.ep, ToAttributeListType<ClusterTypes>...>;
 
         static constexpr zb_uint8_t ep_id() { return i.ep; }
 
@@ -58,6 +58,9 @@ namespace zb
             ep{clusters}
         {
         }
+
+        template<class StructTag>
+        constexpr auto& attribute_list() { return attributes.get(mem_tag_t<StructTag>{}); }
 
         AttributeListContainer<ClusterTypes...> attributes;
         ClusterListType clusters;
@@ -122,6 +125,9 @@ namespace zb
 
         template<zb_uint8_t _ep>
         constexpr auto& ep() { return eps.get(ep_tag_t<_ep>{}).ep; }
+
+        template<zb_uint8_t _ep>
+        constexpr auto& ep_obj() { return eps.get(ep_tag_t<_ep>{}); }
 
         operator zb_af_device_ctx_t*() { return &ctx; }
 

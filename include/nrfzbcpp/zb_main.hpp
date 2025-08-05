@@ -18,14 +18,14 @@ namespace zb
 
     //given multiples of TAttributeList<> objects this constructs and returns a TClusterList<..> 
     //with a properly initialized array of zb_zcl_cluster_desc_t
-    template<class... ClusterAttributesDesc> requires (ZigbeeAttributeList<ClusterAttributesDesc> && ...)
-    constexpr auto to_clusters(ClusterAttributesDesc&... c) -> TClusterList<ClusterAttributesDesc...> { return {c...}; }
+    template<uint8_t ep, class... ClusterAttributesDesc> requires (ZigbeeAttributeList<ClusterAttributesDesc> && ...)
+    constexpr auto to_clusters(ClusterAttributesDesc&... c) -> TClusterList<ep, ClusterAttributesDesc...> { return {c...}; }
 
     //given multiples clusters in form of TClusterList<> this constructs and returns a EPDesc<..> 
     //with a proper zb_af_simple_desc_1_1_t-derived simple description and a properyl initialized zb_af_endpoint_desc_t
     //also with the automatically calculated and reserved space for reporting attributes and level control alarms
     template<EPBaseInfo i, class... T>
-    constexpr auto configure_ep(TClusterList<T...> &clusters) -> EPDesc<i, TClusterList<T...>>
+    constexpr auto configure_ep(TClusterList<i.ep, T...> &clusters) -> EPDesc<i, TClusterList<i.ep, T...>>
     {
         return {clusters};
     }

@@ -3,8 +3,10 @@
 
 #include "lib_object_pool.hpp"
 #include "zb_desc_helper_types_attr.hpp"
+#include "zb_desc_helper_types_cmd_handling.hpp"
 #include <algorithm>
 #include <optional>
+#include <span>
 
 namespace zb
 {
@@ -200,9 +202,18 @@ namespace zb
     struct cmd_cfg_t
     {
         uint8_t cmd_id;
+        uint8_t pool_size = 0;
+        bool    receive = false;
         uint16_t manuf_code = ZB_ZCL_MANUF_CODE_INVALID;
-        uint8_t pool_size = 1;
     };
+
+    template<class T, bool exists>
+    struct ConditionalVar;
+
+    template<class T>
+    struct ConditionalVar<T, true> { T value; };
+    template<class T>
+    struct ConditionalVar<T, false> {};
     //as NTTP to cluster description template type
     template<cmd_cfg_t cfg, class... Args>
     struct cluster_cmd_desc_t
@@ -213,10 +224,29 @@ namespace zb
         using args_ret_t = std::optional<pool_idx_type_t>;
         static PoolType g_Pool;
         using RequestPtr = PoolType::template Ptr<g_Pool>;
+        using typed_callback_t = void(*)(Args const&...);
 
         static constexpr auto pool_size() { return cfg.pool_size; }
+        static constexpr bool is_generated() { return pool_size() >= 1; }
+        static constexpr bool is_received() { return cfg.receive; }
 
         static constexpr uint8_t kCmdId = cfg.cmd_id;
+
+        [[no_unique_address]]ConditionalVar<typed_callback_t, cfg.receive> m_Callback{};
+
+        static zb_bool_t on_recv_cmd(zb_uint8_t param)
+        {
+            zb_bool_t processed = ZB_TRUE;
+            zb_zcl_parsed_hdr_t cmd_info;
+            zb_ret_t status = RET_OK;
+
+            if ( ZB_ZCL_GENERAL_GET_CMD_LISTS_PARAM == param )
+            {
+                //ZCL_CTX().zb_zcl_cluster_cmd_list = &gs_poll_control_client_cmd_list;
+                return ZB_TRUE;
+            }
+            return ZB_TRUE;
+        }
 
         template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
         static args_ret_t prepare_args(zb_callback_t cb, TArgs&&... args) { 
@@ -255,10 +285,11 @@ namespace zb
         template<cluster_info_t i, request_args_t r>
         static void request(uint16_t argsPoolIdx)
         {
+            static_assert(r.profile_id && cfg.pool_size >= 1, "This command cannot be sent");
             zigbee_get_out_buf_delayed_ext( &on_out_buf_ready<i, r>, argsPoolIdx, 0);
         }
 
-        template<cluster_info_t i, request_args_t r>
+        template<cluster_info_t i, request_args_t r> requires (cfg.pool_size >= 1)
         static void on_out_buf_ready(zb_bufid_t bufid, uint16_t poolIdx)
         {
             auto *pArgs = g_Pool.IdxToPtr(poolIdx);
@@ -290,6 +321,30 @@ namespace zb
     template<zb_uint8_t cmd_id, uint8_t pool_size, class... Args>
     struct cluster_std_cmd_desc_with_pool_size_t: cluster_cmd_desc_t<{.cmd_id = cmd_id, .pool_size = pool_size ? pool_size : cmd_cfg_t{}.pool_size}, Args...> {};
 
+    template<zb_uint8_t cmd_id, class... Args>
+    struct cluster_in_cmd_desc_t: cluster_cmd_desc_t<{.cmd_id = cmd_id, .receive = true}, Args...> {
+        using this_type = cluster_in_cmd_desc_t<cmd_id, Args...>;
+        using callback_t = CmdHandlingResult(*)(Args const&...);
+        static constexpr size_t kArgRawSize = (sizeof(Args) + ... + 0);
+        callback_t cb = nullptr;
+
+        static CmdHandlingResult raw_handler(zb_zcl_parsed_hdr_t* pHdr, std::span<uint8_t> data, void *pField)
+        {
+            this_type *pThis = (this_type *)pField;
+            if (!pThis->cb) return {RET_OK, false};
+            if (data.size() < kArgRawSize) return {RET_ILLEGAL_REQUEST, true};
+
+            const uint8_t *pData = data.data();
+            auto to_arg = [&]<class A>(A *pDummy)->A const&
+            {
+                const A *p = (const A*)pData;
+                pData += sizeof(A);
+                return *p;
+            };
+            return pThis->cb(to_arg((Args*)nullptr)...);
+        }
+    };
+
     template<auto... attributeMemberDesc>
     struct cluster_attributes_desc_t
     {
@@ -311,6 +366,51 @@ namespace zb
         static constexpr size_t kCmdCount = sizeof...(cmdMemberDesc);
         template<auto memPtr>
         static constexpr inline auto get_cmd_description() { return find_cluster_cmd_desc_t<memPtr, cmdMemberDesc...>::cmd_desc(); }
+        static constexpr inline size_t count_generated() { return ((size_t)mem_ptr_traits<decltype(cmdMemberDesc)>::MemberType::is_generated() + ... + 0); }
+        static constexpr inline size_t count_received() { return ((size_t)mem_ptr_traits<decltype(cmdMemberDesc)>::MemberType::is_received() + ... + 0); }
+
+        static constexpr RawHandlerResult find_cmd_handler(uint8_t id, auto *pStruct)
+        {
+            RawHandlerResult res;
+            bool found = false;
+            auto check = [&]<class CmdType>(CmdType *pF){
+                if constexpr (CmdType::is_received())
+                {
+                    if (!found && pF->kCmdId == id)
+                    {
+                        res.field = pF;
+                        res.h = &pF->raw_handler;
+                        found = true;
+                    }
+                }
+            };
+            (check(&(pStruct->*cmdMemberDesc)),...);
+            return res;
+        }
+
+        static constexpr inline auto get_generated_commands()
+        {
+            cmd_id_list_t<count_generated()> res;
+            int i = 0;
+            auto add = [&](bool is_gen, uint8_t id){
+                if (is_gen)
+                    res.cmds[i++] = id;
+            };
+            (add(mem_ptr_traits<decltype(cmdMemberDesc)>::MemberType::is_generated(), mem_ptr_traits<decltype(cmdMemberDesc)>::MemberType::kCmdId),...);
+            return res;
+        }
+
+        static constexpr inline auto get_received_commands()
+        {
+            cmd_id_list_t<count_received()> res;
+            int i = 0;
+            auto add = [&](bool is_recv, uint8_t id){
+                if (is_recv)
+                    res.cmds[i++] = id;
+            };
+            (add(mem_ptr_traits<decltype(cmdMemberDesc)>::MemberType::is_received(), mem_ptr_traits<decltype(cmdMemberDesc)>::MemberType::kCmdId),...);
+            return res;
+        }
 
         static constexpr inline auto max_command_pool_size() 
         { 
@@ -337,6 +437,11 @@ namespace zb
         static constexpr inline size_t count_members_with_access(Access a) { return attributes.count_members_with_access(a); }
         static constexpr inline size_t count_cvc_members() { return attributes.count_cvc_members(); }
         static constexpr inline auto max_command_pool_size() { return cmds.max_command_pool_size(); }
+        static constexpr inline size_t count_generated() { return cmds.count_generated(); }
+        static constexpr inline size_t count_received() { return cmds.count_received(); }
+        static constexpr inline auto get_generated_commands() { return cmds.get_generated_commands(); }
+        static constexpr inline auto get_received_commands() { return cmds.get_received_commands(); }
+        static constexpr RawHandlerResult find_cmd_handler(uint8_t id, auto *pStruct) { return cmds.find_cmd_handler(id, pStruct); }
 
         template<auto memPtr>
         static constexpr inline auto get_member_description() { return attributes.template get_member_description<memPtr>(); }
@@ -361,7 +466,7 @@ namespace zb
         return MakeAttributeList(&s, cluster_mem_to_attr_desc(s, ClusterMemDescriptions)...);
     }
 
-    template<class... T>
+    template<uint8_t ep, class... T>
     struct TClusterList
     {
         static constexpr size_t N = sizeof...(T);
@@ -388,11 +493,65 @@ namespace zb
         static constexpr bool has_info(cluster_info_t ci) { return ((T::info() == ci) || ...); }
 
         constexpr TClusterList(T&... d):
-            clusters{ d.desc()... }
+            clusters{ d.template desc<ep>()... }
         {
         }
 
         alignas(4) zb_zcl_cluster_desc_t clusters[N];
     };
+
+    template<class StructTag, uint8_t ep>
+    inline zb_bool_t on_cluster_cmd_handling(zb_uint8_t param)
+    {
+        if ( ZB_ZCL_GENERAL_GET_CMD_LISTS_PARAM == param )
+        {
+            ZCL_CTX().zb_zcl_cluster_cmd_list = cluster_custom_handler_t<StructTag, ep>::get_cmd_list();
+            return ZB_TRUE;
+        }
+
+        //zb_bool_t processed = ZB_TRUE;
+        //zb_ret_t status = RET_OK;
+        zb_zcl_parsed_hdr_t *cmd_info = ZB_BUF_GET_PARAM(param, zb_zcl_parsed_hdr_t);
+
+        auto [status, processed] = cluster_custom_handler_t<StructTag, ep>::on_cmd(cmd_info, std::span<uint8_t>{(uint8_t*)zb_buf_begin(param), zb_buf_len(param)});
+
+        if( processed )
+        {
+            if( cmd_info->disable_default_response && status == RET_OK)
+            {
+                //TRACE_MSG( TRACE_ZCL3,
+                //        "Default response disabled",
+                //        (FMT__0));
+                zb_buf_free(param);
+            }
+            else if (status == RET_NOT_IMPLEMENTED) /* case of absence global scene attribute instance for
+                                                     * zb_zcl_process_on_off_on_with_recall_global_scene_handler
+                                                     */
+            {
+                ZB_ZCL_PROCESS_COMMAND_FINISH(param, cmd_info, ZB_ZCL_STATUS_UNSUP_CMD);
+            }
+            else if (status != RET_BUSY)
+            {
+                ZB_ZCL_PROCESS_COMMAND_FINISH(param, cmd_info, status==RET_OK ? ZB_ZCL_STATUS_SUCCESS : ZB_ZCL_STATUS_INVALID_FIELD);
+            }
+        }
+
+        return processed;
+    }
+
+    template<class StructTag, uint8_t ep>
+    void generic_cluster_init()
+    {
+        constexpr auto d = zcl_description_t<StructTag>::get();
+        if constexpr (d.count_received() > 0)
+        {
+            constexpr auto i = d.info();
+            zb_zcl_add_cluster_handlers(i.id, (uint8_t)i.role
+                    , nullptr /*cluster_check_value*/
+                    , nullptr /*cluster_write_attr_hook*/
+                    , &on_cluster_cmd_handling<StructTag, ep> /*cluster_handler*/
+                    );
+        }
+    }
 }
 #endif
