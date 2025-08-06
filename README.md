@@ -3,7 +3,7 @@
 ## Goal
 Replace a macro madness with a C++ template madness )) (hopefully C++26's static reflection will simplify it though).
 
-## Quick Example
+## Examples
 How to declare a zigbee device with an endpoint and several clusters:
 ```cpp
 #include <nrfzbcpp/zb_main.hpp>
@@ -32,6 +32,7 @@ constexpr auto kTemp = &zb::zb_zcl_temp_basic_t::measured_value;//for easier acc
 
 using namespace zb::literals;
 /* Zigbee device application context storage. */
+//Here lives actual data of the clusters
 static constinit device_ctx_t dev_ctx{
     .basic_attr = {
 	{
@@ -41,14 +42,14 @@ static constinit device_ctx_t dev_ctx{
 	/*.manufacturer =*/ INIT_BASIC_MANUF_NAME,
 	/*.model =*/ INIT_BASIC_MODEL_ID,
     },
-	.poll_ctrl = {
-	    .check_in_interval = 60_min_to_qs,
-	    .long_poll_interval = 7_sec_to_qs,
-	    //.short_poll_interval = 1_sec_to_qs,
-	},
-	.temperature = {
-	    .measured_value = 0,
-	}
+    .poll_ctrl = {
+	.check_in_interval = 60_min_to_qs,
+	.long_poll_interval = 7_sec_to_qs,
+	//.short_poll_interval = 1_sec_to_qs,
+    },
+    .temperature = {
+	.measured_value = 0,
+    }
 };
 
 //Here we're making the actual Zigbee device with properly initialized structures
@@ -65,8 +66,10 @@ constinit static auto zb_ctx = zb::make_device(
 //for convenient access to some typical operations later
 constinit static auto &zb_ep = zb_ctx.ep<kEP>();
 
+//some temperature sensor somewhere
 static const struct device *const temp_dev = DEVICE_DT_GET(DT_NODELABEL(temp_sensor));
 
+//assuming this is called somewhere in a ZBoss thread
 void on_temperature_measured()
 {
     sensor_sample_fetch(temp_dev);
@@ -103,8 +106,83 @@ int main()
 {
     ZB_AF_REGISTER_DEVICE_CTX(zb_ctx);
     zigbee_enable();
-	k_sleep(K_FOREVER);
+    k_sleep(K_FOREVER);
 }
+```
+
+### How to define a new cluster
+
+```cpp
+#include <nrfzbcpp/zb_main.hpp>
+
+namespace zb
+{
+    static constexpr uint16_t kZB_ZCL_MY_CLUSTER_ID = 0xfc01;
+    static constexpr uint16_t kZB_MY_ATTR1_ID = 0x0000;
+    static constexpr uint16_t kZB_MY_ATTR2_ID = 0x0001;
+
+    struct zb_zcl_my_cluster_t
+    {
+	uint8_t attr1;
+	float attr2;
+    };
+
+    //This is important as it actually makes 'zb_zcl_my_cluster_t' type
+    //known to the rest of the system
+    template<>
+    struct zcl_description_t<zb_zcl_my_cluster_t>{
+        static constexpr auto get()
+        {
+            using T = zb_zcl_my_cluster_t;
+            return cluster_struct_desc_t<
+                cluster_info_t{.id = kZB_ZCL_MY_CLUSTER_ID/*, .role=Role::Server <- default*/},
+                cluster_attributes_desc_t<
+                    cluster_mem_desc_t{.m = &T::attr1,.id = kZB_MY_ATTR1_ID, .a=Access::RW/*, .type=Type::U8 <- autodeduced, but can be explicit, see zb::Type in zb_types.hpp*/}
+                    ,cluster_mem_desc_t{.m = &T::attr2,.id = kZB_MY_ATTR2_ID, .a=Access::RP}
+                >{}
+            >{};
+        }
+    };
+}
+```
+Created in this way cluster may be used then in a straightforward way:
+```cpp
+struct device_ctx_t{
+    zb::zb_zcl_basic_names_t basic_attr;
+    zb::zb_zcl_my_cluster_t my_cluster;
+};
+constexpr auto kA1 = &zb::zb_zcl_my_cluster_t::attr1;
+constexpr auto kA2 = &zb::zb_zcl_my_cluster_t::attr2;
+
+/* Zigbee device application context storage. */
+//Here lives actual data of the clusters
+static constinit device_ctx_t dev_ctx{
+    .basic_attr = {
+	{
+	    .zcl_version = ZB_ZCL_VERSION,
+	    .power_source = zb::zb_zcl_basic_min_t::PowerSource::Battery
+	},
+	/*.manufacturer =*/ "Manufacture",
+	/*.model =*/ "ModelID",
+    },
+    .my_cluster = {
+	.attr1 = 2,//some initial value
+	.attr2 = 1,//some initial value
+    }
+};
+
+constinit static auto zb_ctx = zb::make_device(
+	zb::make_ep_args<{.ep=1, .dev_id=1234, .dev_ver=1}>(
+	    dev_ctx.basic_attr
+	    , dev_ctx.my_cluster
+	    )
+	);
+
+//for convenient access to some typical operations later
+constinit static auto &zb_ep = zb_ctx.ep<1>();
+//...and usage
+zb_ep.attr<kA1>() = 16;
+zb_ep.attr<kA2>() = 1024.56f;
 ```
 
 ## Known issues with compilers
