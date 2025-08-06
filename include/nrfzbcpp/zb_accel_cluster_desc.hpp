@@ -49,8 +49,8 @@ namespace zb
         float x;//1.f == 1G
         float y;//1.f == 1G
         float z;//1.f == 1G
-        [[no_unique_address]]cluster_std_cmd_desc_with_pool_size_t<kZB_ZCL_ACCEL_CMD_ON_EVENT, cfg.on_event_pool_size, EventArgs> on_event;
         cluster_in_cmd_desc_t<kZB_ZCL_ACCEL_CMD_ON_IN_EVENT, InEvent> on_in_event;
+        [[no_unique_address]]cluster_std_cmd_desc_with_pool_size_t<kZB_ZCL_ACCEL_CMD_ON_EVENT, cfg.on_event_pool_size, EventArgs> on_event;
     };
 
     template<accel_config_t cfg> struct zcl_description_t<zb_zcl_accel_basic_t<cfg>> {
