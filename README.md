@@ -1,5 +1,20 @@
 # NRF ZBoss C++ wrappers
 
+<!-- mtoc-start -->
+
+* [Goal](#goal)
+* [Examples](#examples)
+  * [How to define a new cluster](#how-to-define-a-new-cluster)
+  * [Defining commands](#defining-commands)
+    * [Command pools and queues](#command-pools-and-queues)
+    * [Receiving commands](#receiving-commands)
+  * [Typical signal handling](#typical-signal-handling)
+  * [Handling attribute writes](#handling-attribute-writes)
+* [Internals](#internals)
+* [Known issues with compilers](#known-issues-with-compilers)
+
+<!-- mtoc-end -->
+
 ## Goal
 Replace a macro madness with a C++ template madness )) (hopefully C++26's static reflection will simplify it though).
 
@@ -185,5 +200,111 @@ zb_ep.attr<kA1>() = 16;
 zb_ep.attr<kA2>() = 1024.56f;
 ```
 
+### Defining commands
+In order to define commands that may be sent by a cluster (doesn't matter, server or client),
+the following types are to be used:
+```cpp
+cluster_std_cmd_desc_t<COMMAND_ID,Arguments...> my_command;
+```
+Example:
+```cpp
+namespace zb
+{
+    static constexpr uint16_t kZB_ZCL_MY_CLUSTER_ID = 0xfc01;
+    static constexpr uint16_t kZB_MY_ATTR1_ID = 0x0000;
+    static constexpr uint16_t kZB_MY_ATTR2_ID = 0x0001;
+    static constexpr uint16_t kZB_MY_CMD1 = 0x0001;
+    static constexpr uint16_t kZB_MY_CMD2 = 0x0002;
+
+    struct cmd2_args
+    {
+	int8_t a1;
+	float b2;
+    }ZB_PACKED_STRUCT;
+
+    struct zb_zcl_my_cluster_t
+    {
+	uint8_t attr1;
+	float attr2;
+	[[no_unique_address]]cluster_std_cmd_desc_t<kZB_MY_CMD1,int16_t> my_command1;
+	[[no_unique_address]]cluster_std_cmd_desc_t<kZB_MY_CMD2,cmd2_args> my_command2;
+    };
+
+    template<>
+    struct zcl_description_t<zb_zcl_my_cluster_t>{
+        static constexpr auto get()
+        {
+            using T = zb_zcl_my_cluster_t;
+            return cluster_struct_desc_t<
+                cluster_info_t{.id = kZB_ZCL_MY_CLUSTER_ID},
+                cluster_attributes_desc_t<
+                    cluster_mem_desc_t{.m = &T::attr1,.id = kZB_MY_ATTR1_ID, .a=Access::RW}
+                    ,cluster_mem_desc_t{.m = &T::attr2,.id = kZB_MY_ATTR2_ID, .a=Access::RP}
+                >{}
+		//this bit here declares commands as part of the cluster
+                ,cluster_commands_desc_t<
+                     &T::my_command1
+                     ,&T::my_command2
+                >{}
+            >{};
+        }
+    };
+}
+```
+Note: `[[no_unique_address]]` will tell the compiler it can optimize a layout as these commands
+don't actually carry any data.
+Sending such commands can be done by using methods of EP similar to working with attributes: 
+```cpp
+constexpr auto kCmd1 = &zb::zb_zcl_my_cluster_t::my_command1;
+constexpr auto kCmd2 = &zb::zb_zcl_my_cluster_t::my_command2;
+//...
+zb_ep.send_cmd<kCmd1>(-32768);
+zb_ep.send_cmd<kCmd2>(zb::cmd2_args{.a1 = 3, .b2 = 0.5f});
+```
+These are however shoot-and-forget. 
+A callback if needed can be provided (at the moment required to be known at compile time) like this:
+```cpp
+void on_cmd_sent(zb::cmd_id_t cmd_id, zb_zcl_command_send_status_t *status)
+{
+    printk("zb: on_cmd_sent id:%d; status: %d\r\n", cmd_id, status->status);
+}
+
+auto cmd_id1 = zb_ep.send_cmd<kCmd1, {.cb = on_cmd_sent}>(-32768);
+auto cmd_id2 = zb_ep.send_cmd<kCmd2, {.cb = on_cmd_sent}>(zb::cmd2_args{.a1 = 3, .b2 = 0.5f});
+```
+
+#### Command pools and queues
+TODO: explain
+
+#### Receiving commands
+Type to use in a cluster:
+```cpp
+cluster_in_cmd_desc_t<kID, Args...> cmd_to_receive;
+```
+TODO: show how to provide a callback to process the incomming command
+
+TODO: describe/explain cluster_custom_handler_t
+```cpp
+using my_custom_cluster_handler_t = zb::cluster_custom_handler_t<zb_zcl_my_cluster_t, kEP>;
+template<> 
+struct zb::cluster_custom_handler_t<zb_zcl_my_cluster_t, kEP>: cluster_custom_handler_base_t<my_custom_cluster_handler_t>
+{
+    //the rest will be done by cluster_custom_handler_base_t
+    static auto& get_device() { return zb_ctx; }
+};
+```
+### Typical signal handling
+TODO
+
+### Handling attribute writes
+TODO
+
+## Internals
+TODO
+
 ## Known issues with compilers
-LLVM vs GCC (constinit issue)
+The code compiles fine with `clang++-19`, `clang++-20` with `-std=c++23` option enabled.
+GCC 12.2 (which comes with NCS SDK from Nordic) struggles with some constexpr's, declaring
+it impossible to do `constinit` on a `zb_ctx` (the result of the `zb::make_device` call).
+Removing `constinit` helps to overcome the compiler issue but I'm not sure if it has
+a runtime overhead as a consequence.
