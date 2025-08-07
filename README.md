@@ -302,7 +302,26 @@ cluster_in_cmd_desc_t<kID, Args...> cmd_to_receive;
 ```
 TODO: show how to provide a callback to process the incomming command
 
-TODO: describe/explain cluster_custom_handler_t
+ZBOSS provides a way initialize a custom cluster or additionaly customize a behavior of the standard one.
+The field in question is `zb_zcl_cluster_desc_t::cluster_init`.
+During that init phase its typical to add some custom handlers on such events as:
+ * checking validity of the value before it's written into an attribute
+ * writing an attribute hook
+ * handler for an incoming command
+The way to set those is `zb_zcl_add_cluster_handlers`.
+The library does assigns/generate a default initializer `generic_cluster_init` to the cluster (defined in `nrfzbcpp/zb_desc_helper_types_cluster.hpp`).
+It also calls the original zboss's init function if it' available in `zcl_description_t` as a static `zboss_init_func` function.
+If a cluster description obtained via `zcl_description_t<>::get` reports some amount of commands that may be received, `zb_zcl_add_cluster_handlers`
+is invoked with a `on_cluster_cmd_handling` as a default handler. It takes care of a certain boilerplate logic (like reacting to `ZB_ZCL_GENERAL_GET_CMD_LISTS_PARAM`
+and returning an array of existing commands) but the actual command handling is forwarded to a specialization of a `zb::cluster_custom_handler_t<...>` class.
+Static function `on_cmd` is invoked. All of that logic although can be implemented manually, is already implemented by a `zb::cluster_custom_handler_base_t`
+which one can derive from in CRTP manner (providing its own class as a template argument).
+The only requirement that is left in this case is to provide a `get_device()` static function that returns a reference to a zigbee device object 
+(result of the `zb::make_device` call). `cluster_custom_handler_base_t` requires it search in a correct end point for a correct cluster when performing 
+`get_cmd_list` or `on_cmd`.
+
+This is typically the only thing needed to be implemented on user's side to be able to handle incomming commands (aside from the actual command handling
+callback of course):
 ```cpp
 using my_custom_cluster_handler_t = zb::cluster_custom_handler_t<zb_zcl_my_cluster_t, kEP>;
 template<> 
