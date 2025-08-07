@@ -275,7 +275,7 @@ auto cmd_id2 = zb_ep.send_cmd<kCmd2, {.cb = on_cmd_sent}>(zb::cmd2_args{.a1 = 3,
 
 #### Command pools and queues
 Apparently ZBOSS doesn't really like attempts to send several commands for the same cluster (endpoint?) in parallel at the same time (or while
-the other while is still being sent). To make sure that doesn't happen, there's a concept of the 'command queue' that exists on the
+the other one is still being sent). To make sure that doesn't happen, there's a concept of the 'command queue' that exists on the
 endpoint level.
 
 The relevant class is `EPDesc<>`, which defines a `kCmdQueueSize` constant. The value for it is either taken from the
