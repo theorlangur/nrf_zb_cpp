@@ -202,7 +202,7 @@ namespace zb
     struct cmd_cfg_t
     {
         uint8_t cmd_id;
-        uint8_t pool_size = 0;
+        uint8_t pool_size = 1;
         bool    receive = false;
         uint16_t manuf_code = ZB_ZCL_MANUF_CODE_INVALID;
     };
@@ -322,7 +322,7 @@ namespace zb
     struct cluster_std_cmd_desc_with_pool_size_t: cluster_cmd_desc_t<{.cmd_id = cmd_id, .pool_size = pool_size ? pool_size : cmd_cfg_t{}.pool_size}, Args...> {};
 
     template<zb_uint8_t cmd_id, class... Args>
-    struct cluster_in_cmd_desc_t: cluster_cmd_desc_t<{.cmd_id = cmd_id, .receive = true}, Args...> {
+    struct cluster_in_cmd_desc_t: cluster_cmd_desc_t<{.cmd_id = cmd_id, .pool_size = 0, .receive = true}, Args...> {
         using this_type = cluster_in_cmd_desc_t<cmd_id, Args...>;
         using callback_t = CmdHandlingResult(*)(Args const&...);
         static constexpr size_t kArgRawSize = (sizeof(Args) + ... + 0);
