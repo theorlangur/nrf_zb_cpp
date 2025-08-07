@@ -274,7 +274,22 @@ auto cmd_id2 = zb_ep.send_cmd<kCmd2, {.cb = on_cmd_sent}>(zb::cmd2_args{.a1 = 3,
 ```
 
 #### Command pools and queues
-TODO: explain
+Apparently ZBOSS doesn't really like attempts to send several commands for the same cluster (endpoint?) in parallel at the same time (or while
+the other while is still being sent). To make sure that doesn't happen, there's a concept of the 'command queue' that exists on the
+endpoint level.
+
+The relevant class is `EPDesc<>`, which defines a `kCmdQueueSize` constant. The value for it is either taken from the
+`EPBaseInfo::cmd_queue_depth` (available in the 1st template parameter to `EPDesc`) or inferred from all the commands across all the clusters
+based on the maximum pool size of those commands.
+
+The amount of each kind of command that the sending process can be initiated for is defined by the size of the pool (see `cluster_cmd_desc_t<...>::g_Pool`). 
+The pools size for each command can be configured with `cmd_cfg_t::pool_size` (default 1).
+There's also a helping class `cluster_std_cmd_desc_with_pool_size_t` that allows specifying a pool size.
+Example:
+```cpp
+cluster_std_cmd_desc_with_pool_size_t<CMD_ID, 2/*pool size*/> cmd1;
+cluster_cmd_desc_t<{.cmd_id=CMD_ID2, .pool_size=2}> cmd2;
+```
 
 #### Receiving commands
 Type to use in a cluster:
