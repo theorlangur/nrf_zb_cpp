@@ -56,6 +56,7 @@ struct zb_zcl_on_off_attrs_client_t
 			>{}
 		>{};
 	}
+	DEFINE_ZBOSS_INIT_GETTER_FOR(ZB_ZCL_CLUSTER_ID_BASIC);
     };
 
 struct zb_zcl_basic_names_t: zb_zcl_basic_min_t
@@ -77,6 +78,7 @@ template<> struct zcl_description_t<zb_zcl_basic_names_t> {
 	>{}
 	>{};
     }
+    DEFINE_ZBOSS_INIT_GETTER_FOR(ZB_ZCL_CLUSTER_ID_BASIC);
 };
 
 template<> struct zcl_description_t<zb_zcl_basic_attrs_ext_t> {
@@ -100,6 +102,7 @@ template<> struct zcl_description_t<zb_zcl_basic_attrs_ext_t> {
 	>{}
 	>{};
     }
+    DEFINE_ZBOSS_INIT_GETTER_FOR(ZB_ZCL_CLUSTER_ID_BASIC);
 };
 
 template<> struct zcl_description_t<zb_zcl_identify_attrs_t> {
@@ -113,6 +116,7 @@ template<> struct zcl_description_t<zb_zcl_identify_attrs_t> {
 	>{}
 	>{};
     }
+    DEFINE_ZBOSS_INIT_GETTER_FOR(ZB_ZCL_CLUSTER_ID_IDENTIFY);
 };
 
 template<> struct zcl_description_t<zb_zcl_on_off_attrs_t> {
@@ -126,6 +130,7 @@ template<> struct zcl_description_t<zb_zcl_on_off_attrs_t> {
 	>{}
 	>{};
     }
+    DEFINE_ZBOSS_INIT_GETTER_FOR(ZB_ZCL_CLUSTER_ID_ON_OFF);
 };
 
 template<> struct zcl_description_t<zb_zcl_on_off_attrs_client_t> {
@@ -141,6 +146,7 @@ template<> struct zcl_description_t<zb_zcl_on_off_attrs_client_t> {
 		>{}
 	>{};
     }
+    DEFINE_ZBOSS_INIT_GETTER_FOR(ZB_ZCL_CLUSTER_ID_ON_OFF);
 };
 
 template<> struct zcl_description_t<zb_zcl_groups_attrs_t> {
@@ -154,6 +160,7 @@ template<> struct zcl_description_t<zb_zcl_groups_attrs_t> {
 	>{}
 	>{};
     }
+    DEFINE_ZBOSS_INIT_GETTER_FOR(ZB_ZCL_CLUSTER_ID_GROUPS);
 };
 
 template<> struct zcl_description_t<zb_zcl_scenes_attrs_t> {
@@ -171,6 +178,7 @@ template<> struct zcl_description_t<zb_zcl_scenes_attrs_t> {
 	>{}
 	>{};
     }
+    DEFINE_ZBOSS_INIT_GETTER_FOR(ZB_ZCL_CLUSTER_ID_SCENES);
 };
 
 template<> struct zcl_description_t<zb_zcl_level_control_attrs_t> {
@@ -185,14 +193,9 @@ template<> struct zcl_description_t<zb_zcl_level_control_attrs_t> {
 	>{}
 	>{};
     }
+    DEFINE_ZBOSS_INIT_GETTER_FOR(ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL);
 };
 
-DEFINE_GET_CLUSTER_INIT_FOR(ZB_ZCL_CLUSTER_ID_BASIC);
-DEFINE_GET_CLUSTER_INIT_FOR(ZB_ZCL_CLUSTER_ID_IDENTIFY);
-DEFINE_GET_CLUSTER_INIT_FOR(ZB_ZCL_CLUSTER_ID_ON_OFF);
-DEFINE_GET_CLUSTER_INIT_FOR(ZB_ZCL_CLUSTER_ID_GROUPS);
-DEFINE_GET_CLUSTER_INIT_FOR(ZB_ZCL_CLUSTER_ID_SCENES);
-DEFINE_GET_CLUSTER_INIT_FOR(ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL);
 }
 
 #endif

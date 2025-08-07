@@ -34,7 +34,5 @@ namespace zb
             >{};
         }
     };
-
-DEFINE_NULL_CLUSTER_INIT_FOR(kZB_ZCL_CLUSTER_ID_STATUS);
 }
 #endif

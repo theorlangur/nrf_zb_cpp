@@ -27,10 +27,8 @@ namespace zb
 
     template<class ClusterTag, uint8_t ep>
     void generic_cluster_init();
-    //base template + a macro to get proper init functions for server/client roles depending on the cluster
-    template<zb_uint16_t id> constexpr zb_zcl_cluster_init_t get_cluster_init(Role r) { static_assert(id >= 0xfc00, "get_cluster_init not specialized for this cluster!"); return nullptr; }
-#define DEFINE_GET_CLUSTER_INIT_FOR(cid) template<> constexpr zb_zcl_cluster_init_t get_cluster_init<cid>(Role r) { return r == Role::Server ? cid##_SERVER_ROLE_INIT : (r == Role::Client ? cid##_CLIENT_ROLE_INIT : NULL); }
-#define DEFINE_NULL_CLUSTER_INIT_FOR(cid) template<> constexpr zb_zcl_cluster_init_t get_cluster_init<cid>(Role r) { return NULL; }
+
+#define DEFINE_ZBOSS_INIT_GETTER_FOR(ZCL_ID) static constexpr auto zboss_init_func(Role r) { return r == Role::Server ? ZCL_ID##_SERVER_ROLE_INIT : (r == Role::Client ? ZCL_ID##_CLIENT_ROLE_INIT : NULL); }
 
 
     template<class MemPtr>

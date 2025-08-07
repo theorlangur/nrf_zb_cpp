@@ -180,9 +180,9 @@ namespace zb
                 >{}
             >{};
         }
+        DEFINE_ZBOSS_INIT_GETTER_FOR(ZB_ZCL_CLUSTER_ID_POWER_CONFIG);
     };
 
 
-DEFINE_NULL_CLUSTER_INIT_FOR(kZB_ZCL_CLUSTER_ID_POWER_CFG);
 }
 #endif

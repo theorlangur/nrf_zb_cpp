@@ -542,7 +542,15 @@ namespace zb
     template<class StructTag, uint8_t ep>
     void generic_cluster_init()
     {
+        using zcl_desc_t = zcl_description_t<StructTag>;
         constexpr auto d = zcl_description_t<StructTag>::get();
+        if constexpr (requires { zcl_desc_t::zboss_init_func(d.info().role); })
+        {
+            //there's a default ZBOSS init func -> try and call it
+            auto zboss_init_f = zcl_desc_t::zboss_init_func(d.info().role);
+            //Note: this will work poorly when same cluster is used for different end points
+            if (zboss_init_f) zboss_init_f();
+        }
         if constexpr (d.count_received() > 0)
         {
             constexpr auto i = d.info();
