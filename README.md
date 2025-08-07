@@ -291,6 +291,10 @@ cluster_std_cmd_desc_with_pool_size_t<CMD_ID, 2/*pool size*/> cmd1;
 cluster_cmd_desc_t<{.cmd_id=CMD_ID2, .pool_size=2}> cmd2;
 ```
 
+Each send method (e.g. `send_cmd`, `send_cmd_to`) returns a `std::optional<cmd_id_t>`, where `cmd_id_t` is a a command index generated
+by the logic of the `EPDesc<>` or `std::nullopt` optional if the command could not be sent (if either arguments could not be allocated and stored
+in command's pool  `cluster_cmd_desc_t<...>::g_Pool` or the command could not be put into a command queue `EPDesc::g_CmdQueue`).
+
 #### Receiving commands
 Type to use in a cluster:
 ```cpp

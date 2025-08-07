@@ -191,6 +191,7 @@ namespace zb
             using cmd_desc_t = decltype(cmd_desc);
             auto args_pool_idx = cmd_desc_t::prepare_args(&on_send_cmd_cb, std::forward<Args>(args)...);
             if (!args_pool_idx) return std::nullopt;
+            typename cmd_desc_t::RequestPtr raii(cmd_desc_t::g_Pool.IdxToPtr(*args_pool_idx));
             auto r = g_CmdQueue.push(
                     g_cmd_num,
                     *args_pool_idx,
@@ -198,12 +199,13 @@ namespace zb
                     cfg.cb
             );
             if (!r) return std::nullopt;
+            raii.release();
             if (*r == 1) send_next_cmd();
             return g_cmd_num++;
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
-        auto send_cmd_to(uint16_t short_addr, uint8_t ep, Args&&...args)
+        std::optional<cmd_id_t> send_cmd_to(uint16_t short_addr, uint8_t ep, Args&&...args)
         {
             constexpr auto types = validate_mem_ptr<memPtr>();
             using ClusterDescType = decltype(types)::ClusterType;
@@ -211,6 +213,7 @@ namespace zb
             using cmd_desc_t = decltype(cmd_desc);
             auto args_pool_idx = cmd_desc_t::prepare_args(&on_send_cmd_cb, short_addr, ep, std::forward<Args>(args)...);
             if (!args_pool_idx) return std::nullopt;
+            typename cmd_desc_t::RequestPtr raii(cmd_desc_t::g_Pool.IdxToPtr(*args_pool_idx));
             auto r = g_CmdQueue.push(
                     g_cmd_num,
                     *args_pool_idx,
@@ -218,12 +221,13 @@ namespace zb
                     cfg.cb
             );
             if (!r) return std::nullopt;
+            raii.release();
             if (*r == 1) send_next_cmd();
             return g_cmd_num++;
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
-        auto send_cmd_to(zb_ieee_addr_t long_addr, uint8_t ep, Args&&...args)
+        std::optional<cmd_id_t> send_cmd_to(zb_ieee_addr_t long_addr, uint8_t ep, Args&&...args)
         {
             constexpr auto types = validate_mem_ptr<memPtr>();
             using ClusterDescType = decltype(types)::ClusterType;
@@ -231,6 +235,7 @@ namespace zb
             using cmd_desc_t = decltype(cmd_desc);
             auto args_pool_idx = cmd_desc_t::prepare_args(&on_send_cmd_cb, long_addr, ep, std::forward<Args>(args)...);
             if (!args_pool_idx) return std::nullopt;
+            typename cmd_desc_t::RequestPtr raii(cmd_desc_t::g_Pool.IdxToPtr(*args_pool_idx));
             auto r = g_CmdQueue.push(
                     g_cmd_num,
                     *args_pool_idx,
@@ -238,12 +243,13 @@ namespace zb
                     cfg.cb
             );
             if (!r) return std::nullopt;
+            raii.release();
             if (*r == 1) send_next_cmd();
             return g_cmd_num++;
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
-        auto send_cmd_to_group(uint16_t group, Args&&...args)
+        std::optional<cmd_id_t> send_cmd_to_group(uint16_t group, Args&&...args)
         {
             constexpr auto types = validate_mem_ptr<memPtr>();
             using ClusterDescType = decltype(types)::ClusterType;
@@ -251,6 +257,7 @@ namespace zb
             using cmd_desc_t = decltype(cmd_desc);
             auto args_pool_idx = cmd_desc_t::prepare_args(&on_send_cmd_cb, group, std::forward<Args>(args)...);
             if (!args_pool_idx) return std::nullopt;
+            typename cmd_desc_t::RequestPtr raii(cmd_desc_t::g_Pool.IdxToPtr(*args_pool_idx));
             auto r = g_CmdQueue.push(
                     g_cmd_num,
                     *args_pool_idx,
@@ -258,12 +265,13 @@ namespace zb
                     cfg.cb
             );
             if (!r) return std::nullopt;
+            raii.release();
             if (*r == 1) send_next_cmd();
             return g_cmd_num++;
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
-        auto send_cmd_to_binded(uint8_t bind_table_id, Args&&...args)
+        std::optional<cmd_id_t> send_cmd_to_binded(uint8_t bind_table_id, Args&&...args)
         {
             constexpr auto types = validate_mem_ptr<memPtr>();
             using ClusterDescType = decltype(types)::ClusterType;
@@ -271,6 +279,7 @@ namespace zb
             using cmd_desc_t = decltype(cmd_desc);
             auto args_pool_idx = cmd_desc_t::prepare_args(&on_send_cmd_cb, bind_table_id, std::forward<Args>(args)...);
             if (!args_pool_idx) return std::nullopt;
+            typename cmd_desc_t::RequestPtr raii(cmd_desc_t::g_Pool.IdxToPtr(*args_pool_idx));
             auto r = g_CmdQueue.push(
                     g_cmd_num,
                     *args_pool_idx,
@@ -278,6 +287,7 @@ namespace zb
                     cfg.cb
             );
             if (!r) return std::nullopt;
+            raii.release();
             if (*r == 1) send_next_cmd();
             return g_cmd_num++;
         }
