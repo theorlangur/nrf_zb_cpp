@@ -139,14 +139,6 @@ namespace zb
         }
 
         inline static cmd_id_t g_cmd_num = 0;
-        using send_request_func_t = void (*)(uint16_t argsPoolIdx);
-        struct CmdRequest
-        {
-            cmd_id_t id;
-            uint8_t args_idx;
-            send_request_func_t send_req;
-            cmd_send_status_cb_t cb;
-        };
         inline static RingBuffer<CmdRequest, kCmdQueueSize> g_CmdQueue;
 
         static bool send_next_cmd()
