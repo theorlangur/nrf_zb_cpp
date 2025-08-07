@@ -551,13 +551,19 @@ namespace zb
             //Note: this will work poorly when same cluster is used for different end points
             if (zboss_init_f) zboss_init_f();
         }
+        zb_zcl_cluster_check_value_t check_val = nullptr;
+        zb_zcl_cluster_write_attr_hook_t write_hook = nullptr;
+        zb_zcl_cluster_handler_t cmd_handler = nullptr;
         if constexpr (d.count_received() > 0)
+            cmd_handler = &on_cluster_cmd_handling<StructTag, ep>;
+
+        if (check_val || write_hook || cmd_handler)
         {
             constexpr auto i = d.info();
             zb_zcl_add_cluster_handlers(i.id, (uint8_t)i.role
-                    , nullptr /*cluster_check_value*/
-                    , nullptr /*cluster_write_attr_hook*/
-                    , &on_cluster_cmd_handling<StructTag, ep> /*cluster_handler*/
+                    , check_val /*cluster_check_value*/
+                    , write_hook /*cluster_write_attr_hook*/
+                    , cmd_handler /*cluster_handler*/
                     );
         }
     }
