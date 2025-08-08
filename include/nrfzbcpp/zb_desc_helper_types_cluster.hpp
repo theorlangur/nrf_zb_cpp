@@ -519,14 +519,9 @@ namespace zb
         {
             if( cmd_info->disable_default_response && status == RET_OK)
             {
-                //TRACE_MSG( TRACE_ZCL3,
-                //        "Default response disabled",
-                //        (FMT__0));
                 zb_buf_free(param);
             }
-            else if (status == RET_NOT_IMPLEMENTED) /* case of absence global scene attribute instance for
-                                                     * zb_zcl_process_on_off_on_with_recall_global_scene_handler
-                                                     */
+            else if (status == RET_NOT_IMPLEMENTED)
             {
                 ZB_ZCL_PROCESS_COMMAND_FINISH(param, cmd_info, ZB_ZCL_STATUS_UNSUP_CMD);
             }
