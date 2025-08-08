@@ -300,7 +300,46 @@ Type to use in a cluster:
 ```cpp
 cluster_in_cmd_desc_t<kID, Args...> cmd_to_receive;
 ```
-TODO: show how to provide a callback to process the incomming command
+Commands that can be received carry a callback that can be set. Callback is of type 
+`zb::CmdHandlingResult (*)(const Args &...)`.<br>
+A `zb::CmdHandlingResult` is defined like:
+```cpp
+struct CmdHandlingResult
+{
+    zb_ret_t status = RET_OK;
+    bool processed = true;
+};
+```
+If `processed` is set to true, no further handling will be done. Otherwise a default handling will happen.
+Unless command came with a `disable_default_response` flag set or `status` is returned as `RET_BUSY`, 
+a command response will be generated.<br>
+Example of usage:
+```cpp
+struct some_cluster_t
+{
+    cluster_in_cmd_desc_t<kID, Args...> cmd_to_receive;
+};
+
+struct dev_ctx_t
+{
+    some_cluster_t c;
+};
+
+//forward declaration
+zb::CmdHandlingResult my_cmd_handler(const Args &...);
+
+static constinit dev_ctx_t dev_ctx{
+    .c = {
+	.cmd_to_receive = { .cb = my_cmd_handler }
+    }
+};
+
+zb::CmdHandlingResult my_cmd_handler(const Args &...)
+{
+    printk("Received a command\r\n");
+    return {};//processed, RET_OK
+}
+```
 
 ZBOSS provides a way initialize a custom cluster or additionaly customize a behavior of the standard one.
 The field in question is `zb_zcl_cluster_desc_t::cluster_init`.
@@ -308,6 +347,7 @@ During that init phase its typical to add some custom handlers on such events as
  * checking validity of the value before it's written into an attribute
  * writing an attribute hook
  * handler for an incoming command
+
 The way to set those is `zb_zcl_add_cluster_handlers`.
 The library does assigns/generate a default initializer `generic_cluster_init` to the cluster (defined in `nrfzbcpp/zb_desc_helper_types_cluster.hpp`).
 It also calls the original zboss's init function if it' available in `zcl_description_t` as a static `zboss_init_func` function.
