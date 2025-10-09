@@ -26,6 +26,21 @@ namespace zb
     template<size_t off, auto... entries>
         struct persistent_settings_manager
         {
+            static int zigbee_settings_export(int (*cb)(const char *name,
+                                                       const void *value, size_t val_len))
+            {
+                int rc = 0;
+                auto export_entry = [&](auto e){
+                    if (rc < 0) return;
+                    const char *next;
+                    using T = std::remove_cvref_t<decltype(e.mem)>;
+                    rc = cb(e.name, &e.mem, sizeof(T));
+                };
+
+                (export_entry(entries),...);
+                return rc;
+            }
+
             static int zigbee_settings_set(const char *name, size_t len,
                     settings_read_cb read_cb, void *cb_arg)
             {
