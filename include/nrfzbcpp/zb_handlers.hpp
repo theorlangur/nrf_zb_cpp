@@ -14,12 +14,9 @@ namespace zb
     using dev_callback_handler_t = void(*)(zb_zcl_device_callback_param_t *);
     using err_callback_handler_t = void(*)(int err);
     using set_attr_value_handler_t = void (*)(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam);
-    struct update_settings_tag_t{};
-    using update_settings_handler_t = void (*)(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam, update_settings_tag_t t);
     struct set_attr_val_gen_desc_t: EPClusterAttributeDesc_t
     {
         set_attr_value_handler_t handler;
-        update_settings_handler_t settings;
     };
 
     template<auto F>
@@ -121,18 +118,6 @@ namespace zb
     template<auto F>
     constexpr static auto to_handler_v = to_handler_t<F>::value;
 
-    template<const char *settings_entry_name, const auto &Mem>
-    struct persistent_settings_t
-    {
-        static void handle(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam, update_settings_tag_t t)
-        {
-            settings_save_one(settings_entry_name, &Mem, sizeof(std::remove_cvref_t<decltype(Mem)>));
-        }
-    };
-
-    template<const char *settings_entry_name, const auto &Mem>
-    constexpr static update_settings_handler_t settings_v = &persistent_settings_t<settings_entry_name, Mem>::handle;
-
     struct SetAttrValHandlingNode: GenericNotificationNode<SetAttrValHandlingNode>
     {
         set_attr_val_gen_desc_t h;
@@ -174,11 +159,7 @@ namespace zb
                         auto f = [&](const zb::set_attr_val_gen_desc_t &h)
                         {
                             if (h.fits(pDevParam->endpoint, pSetVal->cluster_id, pSetVal->attr_id))
-                            {
                                 h.handler(pSetVal, pDevParam);
-                                if (h.settings)
-                                    h.settings(pSetVal, pDevParam, update_settings_tag_t{});
-                            }
                         };
                         (f(handlers),...);
                         //[[maybe_unused]]zb_ret_t r = 
