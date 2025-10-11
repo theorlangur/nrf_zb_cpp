@@ -62,7 +62,7 @@ namespace zb
                 };
 
                 (process_entry(entries),...);
-                return found ? -ENOENT : rc;
+                return !found ? -ENOENT : rc;
             }
 
             template<zb::set_attr_value_handler_t h>
