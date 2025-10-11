@@ -57,6 +57,14 @@ namespace zb
                             return;
                         }
                         rc = read_cb(cb_arg, &e.mem, sizeof(T));
+                        if (rc >= 0)
+                        {
+                            if (rc != sizeof(T))
+                                rc = -EINVAL;
+                            else
+                                rc = 0;//we've read the correct size
+                            return;
+                        }
                         //LOG_INF("Loaded PAN ID: 0x%04x", zb_config.pan_id);
                     }
                 };
