@@ -65,7 +65,6 @@ namespace zb
                                 rc = 0;//we've read the correct size
                             return;
                         }
-                        //LOG_INF("Loaded PAN ID: 0x%04x", zb_config.pan_id);
                     }
                 };
 
