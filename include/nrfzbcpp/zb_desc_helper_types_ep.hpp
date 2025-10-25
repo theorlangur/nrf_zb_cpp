@@ -3,6 +3,7 @@
 
 #include "lib_ring_buffer.hpp"
 #include "zb_desc_helper_types_cluster.hpp"
+#include "nrfzbcpp/zb_alarm.hpp"
 
 namespace zb
 {
@@ -53,18 +54,23 @@ namespace zb
 
     using cmd_id_t = uint8_t;
     using cmd_send_status_cb_t = void(*)(cmd_id_t, zb_zcl_command_send_status_t *);
+    static const constexpr uint32_t kCmdTimeoutDefault = uint32_t(-1);
     struct send_cmd_config_t
     {
         cmd_send_status_cb_t cb;
+        uint32_t timeout_ms = kCmdTimeoutDefault;
     };
 
     using send_request_func_t = bool (*)(uint16_t argsPoolIdx);
+    using cancel_func_t = void (*)(uint16_t argsPoolIdx);
     struct CmdRequest
     {
         cmd_id_t id;
         uint8_t args_idx;
         send_request_func_t send_req;
+        cancel_func_t cancel_req;
         cmd_send_status_cb_t cb;
+        uint32_t timeout_ms;
     };
 
     template<EPBaseInfo i, class Clusters>
@@ -140,6 +146,19 @@ namespace zb
 
         inline static cmd_id_t g_cmd_num = 0;
         inline static RingBuffer<CmdRequest, kCmdQueueSize> g_CmdQueue;
+        inline static ZbAlarmExt16 g_CmdTimeoutTracker;
+
+        static void on_send_cmd_timeout(CmdRequest *pCmdReq)
+        {
+            pCmdReq->cancel_req(pCmdReq->args_idx);
+            auto *pCurrent = g_CmdQueue.peek();
+            if (pCurrent == pCmdReq)
+                on_send_cmd_cb(0);
+            else
+            {
+                //how is this possible?
+            }
+        }
 
         static bool send_next_cmd(bool with_cb = true)
         {
@@ -155,7 +174,8 @@ namespace zb
                     if (cb && with_cb)
                         cb(cmd_id, nullptr);
                     return false;
-                }
+                }else if (pNextCmd->timeout_ms)
+                    g_CmdTimeoutTracker.Setup([pNextCmd]{on_send_cmd_timeout(pNextCmd);}, pNextCmd->timeout_ms);
                 return true;
             }
             return false;
@@ -163,6 +183,7 @@ namespace zb
 
         static void on_send_cmd_cb(zb_uint8_t param)
         {
+            g_CmdTimeoutTracker.Cancel();
             auto *pCurrent = g_CmdQueue.peek();
             ZB_ASSERT(pCurrent);
             auto cmd_id = pCurrent->id;
@@ -170,7 +191,7 @@ namespace zb
             g_CmdQueue.drop();
             if (cb)
             {
-                zb_zcl_command_send_status_t *cmd_send_status = ZB_BUF_GET_PARAM(param, zb_zcl_command_send_status_t);
+                zb_zcl_command_send_status_t *cmd_send_status = param ? ZB_BUF_GET_PARAM(param, zb_zcl_command_send_status_t) : nullptr;
                 cb(cmd_id, cmd_send_status);
             }
 
@@ -196,12 +217,15 @@ namespace zb
             auto args_pool_idx = cmd_desc_t::prepare_args(&on_send_cmd_cb, std::forward<Args>(args)...);
             if (!args_pool_idx) return std::nullopt;
             typename cmd_desc_t::RequestPtr raii(cmd_desc_t::g_Pool.IdxToPtr(*args_pool_idx));
+            constexpr auto kTimeout = cfg.timeout_ms == kCmdTimeoutDefault ? cmd_desc_t::timeout_ms() : cfg.timeout_ms;
             auto r = g_CmdQueue.push(
                     /*struct CmdRequest*/
-                    /*id*/      g_cmd_num,
-                    /*args_idx*/*args_pool_idx,
-                    /*send_req*/&cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
-                    /*cb*/      cfg.cb
+                    /*id*/        g_cmd_num,
+                    /*args_idx*/  *args_pool_idx,
+                    /*send_req*/  &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
+                   /*cancel_req*/ &cmd_desc_t::cancel,
+                    /*cb*/        cfg.cb,
+                    /*timeout_ms*/kTimeout
             );
             if (!r) return std::nullopt;
             raii.release();
@@ -223,12 +247,15 @@ namespace zb
             auto args_pool_idx = cmd_desc_t::prepare_args(&on_send_cmd_cb, short_addr, ep, std::forward<Args>(args)...);
             if (!args_pool_idx) return std::nullopt;
             typename cmd_desc_t::RequestPtr raii(cmd_desc_t::g_Pool.IdxToPtr(*args_pool_idx));
+            constexpr auto kTimeout = cfg.timeout_ms == kCmdTimeoutDefault ? cmd_desc_t::timeout_ms() : cfg.timeout_ms;
             auto r = g_CmdQueue.push(
                    /*struct CmdRequest*/
-                   /*id*/       g_cmd_num,
-                   /*args_idx*/ *args_pool_idx,
-                   /*send_req*/ &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
-                   /*cb*/       cfg.cb
+                   /*id*/         g_cmd_num,
+                   /*args_idx*/   *args_pool_idx,
+                   /*send_req*/   &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
+                   /*cancel_req*/ &cmd_desc_t::cancel,
+                   /*cb*/         cfg.cb,
+                    /*timeout_ms*/kTimeout
             );
             if (!r) return std::nullopt;
             raii.release();
@@ -250,12 +277,15 @@ namespace zb
             auto args_pool_idx = cmd_desc_t::prepare_args(&on_send_cmd_cb, long_addr, ep, std::forward<Args>(args)...);
             if (!args_pool_idx) return std::nullopt;
             typename cmd_desc_t::RequestPtr raii(cmd_desc_t::g_Pool.IdxToPtr(*args_pool_idx));
+            constexpr auto kTimeout = cfg.timeout_ms == kCmdTimeoutDefault ? cmd_desc_t::timeout_ms() : cfg.timeout_ms;
             auto r = g_CmdQueue.push(
                    /*struct CmdRequest*/
-                   /*id*/       g_cmd_num,
-                   /*args_idx*/ *args_pool_idx,
-                   /*send_req*/ &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
-                   /*cb*/       cfg.cb
+                   /*id*/         g_cmd_num,
+                   /*args_idx*/   *args_pool_idx,
+                   /*send_req*/   &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
+                   /*cancel_req*/ &cmd_desc_t::cancel,
+                    /*cb*/        cfg.cb,
+                    /*timeout_ms*/kTimeout
             );
             if (!r) return std::nullopt;
             raii.release();
@@ -277,12 +307,15 @@ namespace zb
             auto args_pool_idx = cmd_desc_t::prepare_args(&on_send_cmd_cb, group, std::forward<Args>(args)...);
             if (!args_pool_idx) return std::nullopt;
             typename cmd_desc_t::RequestPtr raii(cmd_desc_t::g_Pool.IdxToPtr(*args_pool_idx));
+            constexpr auto kTimeout = cfg.timeout_ms == kCmdTimeoutDefault ? cmd_desc_t::timeout_ms() : cfg.timeout_ms;
             auto r = g_CmdQueue.push(
                    /*struct CmdRequest*/
-                   /*id*/       g_cmd_num,
-                   /*args_idx*/ *args_pool_idx,
-                   /*send_req*/ &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
-                   /*cb*/       cfg.cb
+                   /*id*/         g_cmd_num,
+                   /*args_idx*/   *args_pool_idx,
+                   /*send_req*/   &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
+                   /*cancel_req*/ &cmd_desc_t::cancel,
+                    /*cb*/        cfg.cb,
+                    /*timeout_ms*/kTimeout
             );
             if (!r) return std::nullopt;
             raii.release();
@@ -304,12 +337,15 @@ namespace zb
             auto args_pool_idx = cmd_desc_t::prepare_args(&on_send_cmd_cb, bind_table_id, std::forward<Args>(args)...);
             if (!args_pool_idx) return std::nullopt;
             typename cmd_desc_t::RequestPtr raii(cmd_desc_t::g_Pool.IdxToPtr(*args_pool_idx));
+            constexpr auto kTimeout = cfg.timeout_ms == kCmdTimeoutDefault ? cmd_desc_t::timeout_ms() : cfg.timeout_ms;
             auto r = g_CmdQueue.push(
                    /*struct CmdRequest*/
-                   /*id*/       g_cmd_num,
-                   /*args_idx*/ *args_pool_idx,
-                   /*send_req*/ &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
-                   /*cb*/       cfg.cb
+                   /*id*/         g_cmd_num,
+                   /*args_idx*/   *args_pool_idx,
+                   /*send_req*/   &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
+                   /*cancel_req*/ &cmd_desc_t::cancel,
+                    /*cb*/        cfg.cb,
+                    /*timeout_ms*/kTimeout
             );
             if (!r) return std::nullopt;
             raii.release();

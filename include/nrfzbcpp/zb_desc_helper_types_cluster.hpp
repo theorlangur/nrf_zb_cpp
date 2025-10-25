@@ -138,6 +138,7 @@ namespace zb
         zb_addr_u dst_addr;
         uint8_t dst_ep;
         AddrMode addr_mode;
+        bool canceled;
     };
 
     template<size_t I>
@@ -175,12 +176,12 @@ namespace zb
         using request_runtime_arg_t<I, Args>::copy_to...;
 
         request_runtime_args_var_t(zb_callback_t cb, uint16_t short_a, uint8_t e, AddrMode _addr_mode, Args&&... args):
-            request_runtime_args_base_t{.cb = cb, .dst_addr = {.addr_short = short_a} , .dst_ep = e, .addr_mode = _addr_mode},
+            request_runtime_args_base_t{.cb = cb, .dst_addr = {.addr_short = short_a} , .dst_ep = e, .addr_mode = _addr_mode, .canceled = false},
             request_runtime_arg_t<I, Args>{args}...
         {}
 
         request_runtime_args_var_t(zb_callback_t cb, zb_ieee_addr_t long_a, uint8_t e, AddrMode _addr_mode, Args&&... args):
-            request_runtime_args_base_t{.cb = cb, .dst_ep = e, .addr_mode = _addr_mode},
+            request_runtime_args_base_t{.cb = cb, .dst_ep = e, .addr_mode = _addr_mode, .canceled = false},
             request_runtime_arg_t<I, Args>{args}...
         {
             std::memcpy(dst_addr.addr_long, long_a, sizeof(zb_ieee_addr_t));
@@ -205,6 +206,7 @@ namespace zb
         uint8_t pool_size = 1;
         bool    receive = false;
         uint16_t manuf_code = ZB_ZCL_MANUF_CODE_INVALID;
+        uint32_t timeout_ms = 0;//no timeout
     };
 
     template<class T, bool exists>
@@ -229,6 +231,7 @@ namespace zb
         static constexpr auto pool_size() { return cfg.pool_size; }
         static constexpr bool is_generated() { return pool_size() >= 1; }
         static constexpr bool is_received() { return cfg.receive; }
+        static constexpr auto timeout_ms() { return cfg.timeout_ms; }
 
         static constexpr uint8_t kCmdId = cfg.cmd_id;
 
@@ -289,11 +292,33 @@ namespace zb
             return zigbee_get_out_buf_delayed_ext( &on_out_buf_ready<i, r>, argsPoolIdx, 0) == RET_OK;
         }
 
+        static void cancel(uint16_t argsPoolIdx)
+        {
+            auto *pArgs = g_Pool.IdxToPtr(argsPoolIdx);
+            if (g_Pool.IsValid(pArgs))
+                pArgs->canceled = true;
+        }
+
         template<cluster_info_t i, request_args_t r> requires (cfg.pool_size >= 1)
         static void on_out_buf_ready(zb_bufid_t bufid, uint16_t poolIdx)
         {
             auto *pArgs = g_Pool.IdxToPtr(poolIdx);
+            if (!g_Pool.IsValid(pArgs))
+            {
+                //weird
+                return;
+            }
+
+            if (pArgs->canceled)
+                return;
             RequestPtr raii(pArgs);
+
+            if (bufid == ZB_BUF_INVALID)
+            {
+                //out of mem?
+                if (pArgs->cb) pArgs->cb(0);
+                return;
+            }
 
             constexpr uint16_t manu_code = i.manuf_code != ZB_ZCL_MANUF_CODE_INVALID ? i.manuf_code : cfg.manuf_code;
 
