@@ -58,7 +58,7 @@ namespace zb
         cmd_send_status_cb_t cb;
     };
 
-    using send_request_func_t = void (*)(uint16_t argsPoolIdx);
+    using send_request_func_t = bool (*)(uint16_t argsPoolIdx);
     struct CmdRequest
     {
         cmd_id_t id;
@@ -141,12 +141,21 @@ namespace zb
         inline static cmd_id_t g_cmd_num = 0;
         inline static RingBuffer<CmdRequest, kCmdQueueSize> g_CmdQueue;
 
-        static bool send_next_cmd()
+        static bool send_next_cmd(bool with_cb = true)
         {
             if (auto *pNextCmd = g_CmdQueue.peek())
             {
-                pNextCmd->send_req(pNextCmd->args_idx);
-                //send next request
+                //try and send next request
+                if (!pNextCmd->send_req(pNextCmd->args_idx))
+                {
+                    //couldn't send
+                    auto cb = pNextCmd->cb;
+                    auto cmd_id = pNextCmd->id;
+                    g_CmdQueue.drop();
+                    if (cb && with_cb)
+                        cb(cmd_id, nullptr);
+                    return false;
+                }
                 return true;
             }
             return false;
@@ -164,7 +173,10 @@ namespace zb
                 zb_zcl_command_send_status_t *cmd_send_status = ZB_BUF_GET_PARAM(param, zb_zcl_command_send_status_t);
                 cb(cmd_id, cmd_send_status);
             }
-            send_next_cmd();
+
+            //if we cannot send commands we'll just drain the queue
+            //sad but there's nothing much else we can do
+            while(g_CmdQueue.peek() && !send_next_cmd());
         }
 
     public:
@@ -185,14 +197,19 @@ namespace zb
             if (!args_pool_idx) return std::nullopt;
             typename cmd_desc_t::RequestPtr raii(cmd_desc_t::g_Pool.IdxToPtr(*args_pool_idx));
             auto r = g_CmdQueue.push(
-                    g_cmd_num,
-                    *args_pool_idx,
-                    &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
-                    cfg.cb
+                    /*struct CmdRequest*/
+                    /*id*/      g_cmd_num,
+                    /*args_idx*/*args_pool_idx,
+                    /*send_req*/&cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
+                    /*cb*/      cfg.cb
             );
             if (!r) return std::nullopt;
             raii.release();
-            if (*r == 1) send_next_cmd();
+            //if the size of the Queue is 1 it means this command is the only there
+            //we need to send it right away
+            if (*r == 1) 
+                if (!send_next_cmd(false))
+                    return std::nullopt;
             return g_cmd_num++;
         }
 
@@ -207,14 +224,19 @@ namespace zb
             if (!args_pool_idx) return std::nullopt;
             typename cmd_desc_t::RequestPtr raii(cmd_desc_t::g_Pool.IdxToPtr(*args_pool_idx));
             auto r = g_CmdQueue.push(
-                    g_cmd_num,
-                    *args_pool_idx,
-                    &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
-                    cfg.cb
+                   /*struct CmdRequest*/
+                   /*id*/       g_cmd_num,
+                   /*args_idx*/ *args_pool_idx,
+                   /*send_req*/ &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
+                   /*cb*/       cfg.cb
             );
             if (!r) return std::nullopt;
             raii.release();
-            if (*r == 1) send_next_cmd();
+            //if the size of the Queue is 1 it means this command is the only there
+            //we need to send it right away
+            if (*r == 1)
+                if (!send_next_cmd(false))
+                    return std::nullopt;
             return g_cmd_num++;
         }
 
@@ -229,14 +251,19 @@ namespace zb
             if (!args_pool_idx) return std::nullopt;
             typename cmd_desc_t::RequestPtr raii(cmd_desc_t::g_Pool.IdxToPtr(*args_pool_idx));
             auto r = g_CmdQueue.push(
-                    g_cmd_num,
-                    *args_pool_idx,
-                    &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
-                    cfg.cb
+                   /*struct CmdRequest*/
+                   /*id*/       g_cmd_num,
+                   /*args_idx*/ *args_pool_idx,
+                   /*send_req*/ &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
+                   /*cb*/       cfg.cb
             );
             if (!r) return std::nullopt;
             raii.release();
-            if (*r == 1) send_next_cmd();
+            //if the size of the Queue is 1 it means this command is the only there
+            //we need to send it right away
+            if (*r == 1)
+                if (!send_next_cmd(false))
+                    return std::nullopt;
             return g_cmd_num++;
         }
 
@@ -251,14 +278,19 @@ namespace zb
             if (!args_pool_idx) return std::nullopt;
             typename cmd_desc_t::RequestPtr raii(cmd_desc_t::g_Pool.IdxToPtr(*args_pool_idx));
             auto r = g_CmdQueue.push(
-                    g_cmd_num,
-                    *args_pool_idx,
-                    &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
-                    cfg.cb
+                   /*struct CmdRequest*/
+                   /*id*/       g_cmd_num,
+                   /*args_idx*/ *args_pool_idx,
+                   /*send_req*/ &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
+                   /*cb*/       cfg.cb
             );
             if (!r) return std::nullopt;
             raii.release();
-            if (*r == 1) send_next_cmd();
+            //if the size of the Queue is 1 it means this command is the only there
+            //we need to send it right away
+            if (*r == 1)
+                if (!send_next_cmd(false))
+                    return std::nullopt;
             return g_cmd_num++;
         }
 
@@ -273,14 +305,19 @@ namespace zb
             if (!args_pool_idx) return std::nullopt;
             typename cmd_desc_t::RequestPtr raii(cmd_desc_t::g_Pool.IdxToPtr(*args_pool_idx));
             auto r = g_CmdQueue.push(
-                    g_cmd_num,
-                    *args_pool_idx,
-                    &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
-                    cfg.cb
+                   /*struct CmdRequest*/
+                   /*id*/       g_cmd_num,
+                   /*args_idx*/ *args_pool_idx,
+                   /*send_req*/ &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
+                   /*cb*/       cfg.cb
             );
             if (!r) return std::nullopt;
             raii.release();
-            if (*r == 1) send_next_cmd();
+            //if the size of the Queue is 1 it means this command is the only there
+            //we need to send it right away
+            if (*r == 1)
+                if (!send_next_cmd(false))
+                    return std::nullopt;
             return g_cmd_num++;
         }
 

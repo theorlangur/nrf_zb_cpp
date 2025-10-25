@@ -283,10 +283,10 @@ namespace zb
         }
             
         template<cluster_info_t i, request_args_t r>
-        static void request(uint16_t argsPoolIdx)
+        static bool request(uint16_t argsPoolIdx)
         {
             static_assert(r.profile_id && cfg.pool_size >= 1, "This command cannot be sent");
-            zigbee_get_out_buf_delayed_ext( &on_out_buf_ready<i, r>, argsPoolIdx, 0);
+            return zigbee_get_out_buf_delayed_ext( &on_out_buf_ready<i, r>, argsPoolIdx, 0) == RET_OK;
         }
 
         template<cluster_info_t i, request_args_t r> requires (cfg.pool_size >= 1)
