@@ -207,6 +207,34 @@ namespace zb
         template<auto memPtr>
         auto attr_checked() { return attr_raw<memPtr, true>(); }
 
+        template<auto memPtr>
+        void dump_mem_info()
+        {
+            constexpr auto types = validate_mem_ptr<memPtr>();
+            using ClusterDescType = decltype(types)::ClusterType;
+            constexpr auto cmd_desc = ClusterDescType::template get_cmd_description<memPtr>();
+            using cmd_desc_t = decltype(cmd_desc);
+            const auto &allocated = cmd_desc_t::g_Pool.AllocatedBitSet();
+            printk("Mem info pool idx allocated:");
+            for(size_t b = 0; b < allocated.BitCount; ++b)
+            {
+                if (allocated.test(b))
+                    printk(" %d;", b);
+            }
+            printk("\r\n");
+        }
+
+        template<auto... memPtr>
+        void dump_info()
+        {
+            printk("g_cmd_num=%d; queue size=%d\r\n", g_cmd_num, g_CmdQueue.size());
+            for(CmdRequest *pCmdReq : g_CmdQueue)
+                printk("cmd: id=%d; arg idx=%d\r\n", pCmdReq->id, pCmdReq->args_idx);
+
+            if constexpr(sizeof...(memPtr) > 0)
+                (dump_mem_info<memPtr>(),...);
+        }
+
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         std::optional<cmd_id_t> send_cmd(Args&&...args)
         {
