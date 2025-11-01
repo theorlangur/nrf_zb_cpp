@@ -23,10 +23,10 @@ namespace zb
         static constexpr auto get()
         {
             using T = zb_zcl_co2_basic_t;
-            return cluster_struct_desc_t<
+            return cluster_t<
             {.id = kZB_ZCL_CLUSTER_ID_CO2},
-                cluster_attributes_desc_t<
-                    cluster_mem_desc_t{.m = &T::measured_value,.id = 0x0000, .a=Access::RP}
+                attributes_t<
+                    attribute_t{.m = &T::measured_value,.id = 0x0000, .a=Access::RP}
             >{}
             >{};
         }
@@ -44,11 +44,11 @@ namespace zb
         {
             using T = zb_zcl_co2_t;
             return zcl_description_t<zb_zcl_co2_basic_t>::get() 
-                + cluster_struct_desc_t<
+                + cluster_t<
                 {.id = kZB_ZCL_CLUSTER_ID_CO2},
-                cluster_attributes_desc_t<
-                    cluster_mem_desc_t{.m = &T::min_measured_value,.id = 0x0001},
-                    cluster_mem_desc_t{.m = &T::max_measured_value,.id = 0x0002}
+                attributes_t<
+                    attribute_t{.m = &T::min_measured_value,.id = 0x0001},
+                    attribute_t{.m = &T::max_measured_value,.id = 0x0002}
                 >{}
             >{};
         }
@@ -65,10 +65,10 @@ namespace zb
         {
             using T = zb_zcl_co2_ext_t;
             return zcl_description_t<zb_zcl_co2_t>::get() 
-                + cluster_struct_desc_t<
+                + cluster_t<
                 {.id = kZB_ZCL_CLUSTER_ID_CO2},
-                cluster_attributes_desc_t<
-                    cluster_mem_desc_t{.m = &T::tolerance,.id = 0x0003}
+                attributes_t<
+                    attribute_t{.m = &T::tolerance,.id = 0x0003}
                 >{}
             >{};
         }
