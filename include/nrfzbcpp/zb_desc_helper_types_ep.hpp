@@ -386,7 +386,7 @@ namespace zb
         }
 
         template<auto memPtr>
-        constexpr EPClusterAttributeDesc_t handler_filter_for_attribute()
+        constexpr EPClusterAttributeDesc_t attribute_desc()
         {
             using MemPtrType = decltype(memPtr);
             static_assert(mem_ptr_traits<MemPtrType>::is_mem_ptr, "Only member pointer is allowed");
@@ -399,7 +399,7 @@ namespace zb
         }
 
         template<class Cluster>
-        constexpr EPClusterAttributeDesc_t handler_filter_for_cluster()
+        constexpr EPClusterAttributeDesc_t cluster_desc()
         {
             using ClusterDescType = decltype(zcl_description_t<Cluster>::get());
             static_assert(Clusters::has_info(ClusterDescType::info()), "Requested cluster is not part of the EP");
