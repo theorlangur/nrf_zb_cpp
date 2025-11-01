@@ -75,6 +75,8 @@ namespace zb
             return false;
         } 
     };
+    template<class T, class MemType>
+    using attribute_t = cluster_mem_desc_t<T, MemType>;
 
     //helper for attributes
     template<auto memPtr, auto...ClusterMemDescriptions>
@@ -370,6 +372,15 @@ namespace zb
         }
     };
 
+    template<zb_uint8_t cmd_id, class... Args>
+    using cmd_t = cluster_in_cmd_desc_t<cmd_id, Args...>;
+
+    template<zb_uint8_t cmd_id, uint8_t pool_size, class... Args>
+    using cmd_pool_t = cluster_std_cmd_desc_with_pool_size_t<cmd_id, pool_size, Args...>;
+
+    template<cmd_cfg_t cfg, class... Args>
+    using cmd_generic_t = cluster_cmd_desc_t<cfg, Args...>;
+
     template<auto... attributeMemberDesc>
     struct cluster_attributes_desc_t
     {
@@ -384,6 +395,9 @@ namespace zb
             return cluster_attributes_desc_t< attributeMemberDesc..., attributeMemberDesc2... >{};
         }
     };
+
+    template<auto... attributeMemberDesc>
+    using attributes_t = cluster_attributes_desc_t<attributeMemberDesc...>;
 
     template<auto... cmdMemberDesc>
     struct cluster_commands_desc_t
@@ -453,6 +467,8 @@ namespace zb
             return cluster_commands_desc_t< cmdMemberDesc..., cmdMemberDesc2... >{};
         }
     };
+    template<auto... cmdMemberDesc>
+    using commands_t = cluster_commands_desc_t<cmdMemberDesc...>;
 
     template<cluster_info_t ci, auto attributes = cluster_attributes_desc_t<>{}, auto cmds = cluster_commands_desc_t<>{}>//auto = cluster_attributes_desc_t
     struct cluster_struct_desc_t
@@ -481,6 +497,8 @@ namespace zb
             return cluster_struct_desc_t< ci, attributes + attributes2, cmds + cmds2>{};
         }
     };
+    template<cluster_info_t ci, auto attributes = cluster_attributes_desc_t<>{}, auto cmds = cluster_commands_desc_t<>{}>//auto = cluster_attributes_desc_t
+    using cluster_t = cluster_struct_desc_t<ci, attributes, cmds>;
 
     template<class T, class DestT, class MemType> requires std::is_base_of_v<DestT, T>
     constexpr ADesc<MemType> cluster_mem_to_attr_desc(T& s, cluster_mem_desc_t<DestT,MemType> d) { return {.id = d.id, .a = d.a, .pData = &(s.*d.m), .type = d.type}; }
