@@ -173,6 +173,10 @@ namespace zb
                     g_CmdQueue.drop();
                     if (cb && with_cb)
                         cb(cmd_id, nullptr);
+#if defined(DBG_CMD)
+                    else
+                        printk("failed to initiate send command request for %d (cb=%p)\r\n", cmd_id, cb);
+#endif
                     return false;
                 }else if (pNextCmd->timeout_ms)
                     g_CmdTimeoutTracker.Setup([pNextCmd]{on_send_cmd_timeout(pNextCmd);}, pNextCmd->timeout_ms);
@@ -185,9 +189,19 @@ namespace zb
         {
             g_CmdTimeoutTracker.Cancel();
             auto *pCurrent = g_CmdQueue.peek();
+            if (!pCurrent)
+            {
+#if defined(DBG_CMD)
+                printk("on_send_cmd_cb: param=%d; pCurrent=null; queue empty. unexpected\r\n", param);
+#endif
+                return;
+            }
             ZB_ASSERT(pCurrent);
             auto cmd_id = pCurrent->id;
             auto cb = pCurrent->cb;
+#if defined(DBG_CMD)
+            printk("on_send_cmd_cb: param=%d; id=%d; cb=%p; pCurrent=%p\r\n", param, cmd_id, (void*)cb, pCurrent);
+#endif
             g_CmdQueue.drop();
             if (cb)
             {
@@ -261,6 +275,9 @@ namespace zb
             raii.release();
             //if the size of the Queue is 1 it means this command is the only there
             //we need to send it right away
+#if defined(DBG_CMD)
+            printk("send_cmd1: id=%d; cb=%p\r\n", g_cmd_num, (void*)cfg.cb);
+#endif
             if (*r == 1) 
                 if (!send_next_cmd(false))
                     return std::nullopt;
