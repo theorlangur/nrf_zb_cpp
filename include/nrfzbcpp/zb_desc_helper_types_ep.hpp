@@ -195,6 +195,8 @@ namespace zb
                 cb(cmd_id, cmd_send_status);
             }
 
+            if (param)
+                zb_buf_free(param);
             //if we cannot send commands we'll just drain the queue
             //sad but there's nothing much else we can do
             while(g_CmdQueue.peek() && !send_next_cmd());

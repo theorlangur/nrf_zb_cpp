@@ -337,6 +337,8 @@ namespace zb
             zb_ret_t ret = zb_zcl_finish_and_send_packet(bufid, ptr, &pArgs->dst_addr, (uint8_t)pArgs->addr_mode, pArgs->dst_ep, r.ep, r.profile_id, i.id, pArgs->cb);
             if (RET_OK != ret && pArgs->cb)
                 pArgs->cb(0);
+            if (RET_OK != ret)
+                zb_buf_free(bufid);
         }
     };
     template<cmd_cfg_t cfg, class... Args>
