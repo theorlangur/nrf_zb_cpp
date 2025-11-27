@@ -39,9 +39,9 @@ struct zb_zcl_basic_min_t
 
 struct zb_zcl_on_off_attrs_client_t
 {
-    [[no_unique_address]]cmd_t<ZB_ZCL_CMD_ON_OFF_OFF_ID> off;
-    [[no_unique_address]]cmd_t<ZB_ZCL_CMD_ON_OFF_ON_ID> on;
-    [[no_unique_address]]cmd_t<ZB_ZCL_CMD_ON_OFF_ON_WITH_TIMED_OFF_ID, uint8_t, uint16_t, uint16_t> on_with_timed_off;
+    [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_ON_OFF_OFF_ID, 3> off;
+    [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_ON_OFF_ON_ID, 3> on;
+    [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_ON_OFF_ON_WITH_TIMED_OFF_ID, 3, uint8_t, uint16_t, uint16_t> on_with_timed_off;
 };
 
 template<> struct zcl_description_t<zb_zcl_basic_min_t> {
