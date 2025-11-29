@@ -40,7 +40,6 @@ namespace zb
     {
         static zb_discover_cmd_list_t* get_cmd_list() 
         {
-            //static_assert(sizeof(StructTag) == 0); 
             auto &dev_ctx = internals::delay_tpl_call<global_device, ep>((global_device*)nullptr);
             return dev_ctx.template ep_obj<ep>().template attribute_list<StructTag>();
         }
