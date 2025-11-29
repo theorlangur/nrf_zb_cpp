@@ -6,6 +6,22 @@
 
 namespace zb
 {
+    struct global_device;
+    //auto get_global_device();
+
+    namespace internals{
+        template<class T, uint8_t dummy> requires requires { sizeof(T); }
+        decltype(auto) delay_tpl_call(T *) { 
+            return T::get(); 
+        }
+
+        template<class T, uint8_t dummy>
+        decltype(auto) delay_tpl_call(...) { 
+            static_assert(sizeof(T*) == 0, "Define struct global_device with a static method get!");
+            return nullptr; 
+        }
+    }
+
     struct CmdHandlingResult
     {
         zb_ret_t status = RET_OK;
@@ -24,12 +40,17 @@ namespace zb
     {
         static zb_discover_cmd_list_t* get_cmd_list() 
         {
-            static_assert(sizeof(StructTag) == 0); 
-            return nullptr; 
+            //static_assert(sizeof(StructTag) == 0); 
+            auto &dev_ctx = internals::delay_tpl_call<global_device, ep>((global_device*)nullptr);
+            return dev_ctx.template ep_obj<ep>().template attribute_list<StructTag>();
         }
 
         static CmdHandlingResult on_cmd(zb_zcl_parsed_hdr_t* pHdr, std::span<uint8_t> data)
         {
+            auto &dev_ctx = internals::delay_tpl_call<global_device, ep>((global_device*)nullptr);
+            RawHandlerResult raw_handler = dev_ctx.template ep_obj<ep>().template attribute_list<StructTag>().find_handler_for_cmd(pHdr->cmd_id);
+            if (raw_handler.field)
+                return raw_handler.h(pHdr, data, raw_handler.field);
             return {RET_OK, false};
         }
     };

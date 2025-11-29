@@ -375,7 +375,7 @@ namespace zb
     };
 
     template<zb_uint8_t cmd_id, class... Args>
-    using cmd_t = cluster_in_cmd_desc_t<cmd_id, Args...>;
+    using cmd_in_t = cluster_in_cmd_desc_t<cmd_id, Args...>;
 
     template<zb_uint8_t cmd_id, uint8_t pool_size, class... Args>
     using cmd_pool_t = cluster_std_cmd_desc_with_pool_size_t<cmd_id, pool_size, Args...>;
