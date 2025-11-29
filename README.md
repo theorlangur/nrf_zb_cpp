@@ -151,9 +151,9 @@ namespace zb
             using T = zb_zcl_my_cluster_t;
             return cluster_struct_desc_t<
                 cluster_info_t{.id = kZB_ZCL_MY_CLUSTER_ID/*, .role=Role::Server <- default*/},
-                cluster_attributes_desc_t<
-                    cluster_mem_desc_t{.m = &T::attr1,.id = kZB_MY_ATTR1_ID, .a=Access::RW/*, .type=Type::U8 <- autodeduced, but can be explicit, see zb::Type in zb_types.hpp*/}
-                    ,cluster_mem_desc_t{.m = &T::attr2,.id = kZB_MY_ATTR2_ID, .a=Access::RP}
+                attributes_t<
+                    attribute_t{.m = &T::attr1,.id = kZB_MY_ATTR1_ID, .a=Access::RW/*, .type=Type::U8 <- autodeduced, but can be explicit, see zb::Type in zb_types.hpp*/}
+                    ,attribute_t{.m = &T::attr2,.id = kZB_MY_ATTR2_ID, .a=Access::RP}
                 >{}
             >{};
         }
@@ -204,7 +204,10 @@ zb_ep.attr<kA2>() = 1024.56f;
 In order to define commands that may be sent by a cluster (doesn't matter, server or client),
 the following types are to be used:
 ```cpp
-cluster_std_cmd_desc_t<COMMAND_ID,Arguments...> my_command;
+//simplified version
+cmd_pool_t<COMMAND_ID, <MinPoolSize>, Arguments...> my_command;
+//generic, configurable version
+cmd_generic_t</*cmd_cfg_t*/{.cmd_id=...,.pool_size=...,...},Arguments...> my_command2;
 ```
 Example:
 ```cpp
@@ -237,12 +240,12 @@ namespace zb
             using T = zb_zcl_my_cluster_t;
             return cluster_struct_desc_t<
                 cluster_info_t{.id = kZB_ZCL_MY_CLUSTER_ID},
-                cluster_attributes_desc_t<
-                    cluster_mem_desc_t{.m = &T::attr1,.id = kZB_MY_ATTR1_ID, .a=Access::RW}
-                    ,cluster_mem_desc_t{.m = &T::attr2,.id = kZB_MY_ATTR2_ID, .a=Access::RP}
+                attributes_t<
+                    attribute_t{.m = &T::attr1,.id = kZB_MY_ATTR1_ID, .a=Access::RW}
+                    ,attribute_t{.m = &T::attr2,.id = kZB_MY_ATTR2_ID, .a=Access::RP}
                 >{}
 		//this bit here declares commands as part of the cluster
-                ,cluster_commands_desc_t<
+                ,commands_t<
                      &T::my_command1
                      ,&T::my_command2
                 >{}
@@ -284,11 +287,11 @@ based on the maximum pool size of those commands.
 
 The amount of each kind of command that the sending process can be initiated for is defined by the size of the pool (see `cluster_cmd_desc_t<...>::g_Pool`). 
 The pools size for each command can be configured with `cmd_cfg_t::pool_size` (default 1).
-There's also a helping class `cluster_std_cmd_desc_with_pool_size_t` that allows specifying a pool size.
+There's also a helping class `cmd_pool_t` that allows specifying a pool size.
 Example:
 ```cpp
-cluster_std_cmd_desc_with_pool_size_t<CMD_ID, 2/*pool size*/> cmd1;
-cluster_cmd_desc_t<{.cmd_id=CMD_ID2, .pool_size=2}> cmd2;
+cmd_pool_t<CMD_ID, 2/*pool size*/> cmd1;
+cmd_generic_t<{.cmd_id=CMD_ID2, .pool_size=2}> cmd2;
 ```
 
 Each send method (e.g. `send_cmd`, `send_cmd_to`) returns a `std::optional<cmd_id_t>`, where `cmd_id_t` is a a command index generated
@@ -298,7 +301,7 @@ in command's pool  `cluster_cmd_desc_t<...>::g_Pool` or the command could not be
 #### Receiving commands
 Type to use in a cluster:
 ```cpp
-cluster_in_cmd_desc_t<kID, Args...> cmd_to_receive;
+cmd_in_t<kID, Args...> cmd_to_receive;
 ```
 Commands that can be received carry a callback that can be set. Callback is of type 
 `zb::CmdHandlingResult (*)(const Args &...)`.<br>
@@ -317,7 +320,7 @@ Example of usage:
 ```cpp
 struct some_cluster_t
 {
-    cluster_in_cmd_desc_t<kID, Args...> cmd_to_receive;
+    cmd_in_t<kID, Args...> cmd_to_receive;
 };
 
 struct dev_ctx_t
@@ -354,23 +357,27 @@ It also calls the original zboss's init function if it' available in `zcl_descri
 If a cluster description obtained via `zcl_description_t<>::get` reports some amount of commands that may be received, `zb_zcl_add_cluster_handlers`
 is invoked with a `on_cluster_cmd_handling` as a default handler. It takes care of a certain boilerplate logic (like reacting to `ZB_ZCL_GENERAL_GET_CMD_LISTS_PARAM`
 and returning an array of existing commands) but the actual command handling is forwarded to a specialization of a `zb::cluster_custom_handler_t<...>` class.
-Static function `on_cmd` is invoked. All of that logic although can be implemented manually, is already implemented by a `zb::cluster_custom_handler_base_t`
-which one can derive from in CRTP manner (providing its own class as a template argument).
-The only requirement that is left in this case is to provide a `get_device()` static function that returns a reference to a zigbee device object 
-(result of the `zb::make_device` call). `cluster_custom_handler_base_t` requires it search in a correct end point for a correct cluster when performing 
+Static function `on_cmd` is invoked. All of that boilerplate logic is already implemented by a `zb::cluster_custom_handler_t`. The only thing needed is to define
+a `zb::global_device` struct with a static method `get` that returns a reference to device zigbee context:
+```cpp
+constinit static auto zb_ctx = zb::make_device(
+	zb::make_ep_args<{.ep=1, .dev_id=1234, .dev_ver=1}>(
+	    dev_ctx.basic_attr
+	    , dev_ctx.my_cluster
+	    )
+	);
+struct zb::global_device
+{
+    static auto& get() { return zb_ctx; }
+};
+```
+The `get()` static function returns a reference to a zigbee device object (result of the `zb::make_device` call). 
+`cluster_custom_handler_t` requires it search in a correct end point for a correct cluster when performing 
 `get_cmd_list` or `on_cmd`.
 
 This is typically the only thing needed to be implemented on user's side to be able to handle incomming commands (aside from the actual command handling
-callback of course):
-```cpp
-using my_custom_cluster_handler_t = zb::cluster_custom_handler_t<zb_zcl_my_cluster_t, kEP>;
-template<> 
-struct zb::cluster_custom_handler_t<zb_zcl_my_cluster_t, kEP>: cluster_custom_handler_base_t<my_custom_cluster_handler_t>
-{
-    //the rest will be done by cluster_custom_handler_base_t
-    static auto& get_device() { return zb_ctx; }
-};
-```
+callback of course).
+
 ### Typical signal handling
 TODO
 
