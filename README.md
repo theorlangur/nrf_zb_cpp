@@ -382,7 +382,88 @@ callback of course).
 TODO
 
 ### Handling attribute writes
-TODO
+Configuration of attribute writes handling is done at a compile time as template arguments to a base generic template device callback function
+`zb::tpl_device_cb`. The first template argument of type `zb::dev_cb_handlers_desc` allows to specify an error handler for cases when an unexpected situation
+has happened (not valid `zb_zcl_device_callback_param_t`, unexpected state of the runtime attribute handling nodes) and also a custom handling function
+for cases defined in `zb_zcl_device_callback_id_e` enum. After `zb::dev_cb_handlers_desc` 0 or more arguments of type `zb::set_attr_val_gen_desc_t` may follow.
+Each of the objects of that type define the `endpoint`, `cluster` and an `attribute` and a handling function.
+
+In the most low-level way it may look like:
+```cpp
+void my_raw_attribute_handler(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam);
+...
+zb::set_attr_val_gen_desc_t{ {.ep=EP_ID, .cluster=CLUSTER_ID, .attribute=ATTRIBUTE_ID} ,my_raw_attribute_handler }
+```
+There are also alternative and easier ways to define such handling. Endpoint/Cluster/Attribute part may be obtained by calling an endpoint constexpr method
+`attribute_desc` with an attribute member pointer as a template argument:
+
+```cpp
+//given the following device context with clusters
+struct device_ctx_t{
+    zb::zb_zcl_basic_names_t basic_attr;
+    zb::zb_zcl_my_cluster_t my_cluster;
+};
+//defining shortcut aliases for convenience
+constexpr auto kA1 = &zb::zb_zcl_my_cluster_t::attr1;
+constexpr auto kA2 = &zb::zb_zcl_my_cluster_t::attr2;
+//making an actual ZBoss-conformant device
+constinit static auto zb_ctx = zb::make_device(...);
+//obtaining a reference to endpoint subobject
+constinit static auto &zb_ep = zb_ctx.ep<1>();
+...
+zb::set_attr_val_gen_desc_t{ zb_ep.attribute_desc<kA1>()               , ... }
+zb::set_attr_val_gen_desc_t{ zb_ep.attribute_desc<kA2>()               , ... }
+```
+
+Handling of the attribute writes may be done in a type-friendly way.
+In order to achieve it a helping constexpr template variable may be used: `zb::to_handler_v`.
+It may accept 7 different signatures of the 'attribute set' function:
+
+```cpp
+void func1(const T&);
+void func2(const T&, zb_zcl_device_callback_param_t *pDevCBParam);
+void func3(const T&, zb_zcl_device_callback_param_t *pDevCBParam, zb_zcl_set_attr_value_param_t *p);
+void func4();
+void func5(T);
+void func6(T, zb_zcl_device_callback_param_t *pDevCBParam);
+void func7(T, zb_zcl_device_callback_param_t *pDevCBParam, zb_zcl_set_attr_value_param_t *p);
+```
+
+`func1-3` are the same as `func5-6` the only difference is reference vs copy of the T.
+`func4` doesn't accept any parameters and is for pure notificational purposes.
+
+Example:
+
+```cpp
+//given the following device context with clusters
+struct device_ctx_t{
+    zb::zb_zcl_basic_names_t basic_attr;
+    zb::zb_zcl_my_cluster_t my_cluster;
+};
+//defining shortcut aliases for convenience
+constexpr auto kA1 = &zb::zb_zcl_my_cluster_t::attr1;
+constexpr auto kA2 = &zb::zb_zcl_my_cluster_t::attr2;
+//making an actual ZBoss-conformant device
+constinit static auto zb_ctx = zb::make_device(...);
+//obtaining a reference to endpoint subobject
+constinit static auto &zb_ep = zb_ctx.ep<1>();
+...
+void on_set_a1(float v)
+{
+    //do something with V (it's already set in my_cluster.attr1 at this point
+}
+void on_set_a2(uint8_t v)
+{
+    //do something with V (it's already set in my_cluster.attr2 at this point
+}
+...
+auto dev_cb = zb::tpl_device_cb<
+	zb::dev_cb_handlers_desc{ .error_handler = ... },
+	zb::set_attr_val_gen_desc_t{ zb_ep.attribute_desc<kA1>() , to_handler_v<on_set_a1> },
+	zb::set_attr_val_gen_desc_t{ zb_ep.attribute_desc<kA2>() , to_handler_v<on_set_a2> }
+    >;
+ZB_ZCL_REGISTER_DEVICE_CB(dev_cb);
+```
 
 ## Internals
 TODO
