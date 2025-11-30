@@ -10,6 +10,9 @@
     * [Receiving commands](#receiving-commands)
   * [Typical signal handling](#typical-signal-handling)
   * [Handling attribute writes](#handling-attribute-writes)
+    * [Recommended type-safe approach with `zb::handle_set_for`](#recommended-type-safe-approach-with-zbhandle_set_for)
+    * [Low-level raw approach](#low-level-raw-approach)
+    * [Higher level typed approach (not safe though)](#higher-level-typed-approach-not-safe-though)
 * [Internals](#internals)
 * [Known issues with compilers](#known-issues-with-compilers)
 
@@ -388,6 +391,36 @@ has happened (not valid `zb_zcl_device_callback_param_t`, unexpected state of th
 for cases defined in `zb_zcl_device_callback_id_e` enum. After `zb::dev_cb_handlers_desc` 0 or more arguments of type `zb::set_attr_val_gen_desc_t` may follow.
 Each of the objects of that type define the `endpoint`, `cluster` and an `attribute` and a handling function.
 
+#### Recommended type-safe approach with `zb::handle_set_for`
+It requires a reference to the attribute member variable and a function-handler. At compile time a check will be performed
+making sure the attribute member type can be converted to the 1st argument of the handler function (if it accepts at least 1).
+`zb::handle_set_for` accepts 2 template parameters: 
+1) a reference to the attribute member variable 
+2) a pointer to the set-handler function
+
+it also accepts 1 function parameter which is a reference to the endpoint subobject.
+Example:
+
+```cpp
+void on_set_a1(float v)
+{
+    //do something with V (it's already set in my_cluster.attr1 at this point
+}
+void on_set_a2(uint8_t v)
+{
+    //do something with V (it's already set in my_cluster.attr2 at this point
+}
+...
+auto dev_cb = zb::tpl_device_cb<
+    zb::dev_cb_handlers_desc{ .error_handler = ... }
+    , zb::handle_set_for<kAttr1, on_set_a1>(zb_ep)
+    , zb::handle_set_for<kAttr2, on_set_a2>(zb_ep)
+>;
+```
+Types of `kAttr1` and `on_set_a1` 1st argument don't have to be the same but it should be possible to implicitly converta kAttr1 into 1st argument
+of `on_set_a1`.
+
+#### Low-level raw approach
 In the most low-level way it may look like:
 ```cpp
 void my_raw_attribute_handler(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam);
@@ -415,6 +448,7 @@ zb::set_attr_val_gen_desc_t{ zb_ep.attribute_desc<kA1>()               , ... }
 zb::set_attr_val_gen_desc_t{ zb_ep.attribute_desc<kA2>()               , ... }
 ```
 
+#### Higher level typed approach (not safe though)
 Handling of the attribute writes may be done in a type-friendly way.
 In order to achieve it a helping constexpr template variable may be used: `zb::to_handler_v`.
 It may accept 7 different signatures of the 'attribute set' function:
