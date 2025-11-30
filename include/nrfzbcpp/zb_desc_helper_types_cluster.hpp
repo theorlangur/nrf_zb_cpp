@@ -610,5 +610,37 @@ namespace zb
                     );
         }
     }
+
+    /**********************************************************************/
+    /* Template logic to check for duplicate cluster ids                  */
+    /**********************************************************************/
+    namespace cluster_tools
+    {
+        template<class Cluster>
+        constexpr bool IsAllUniqueHelper(){ return true; }
+
+        template<class ClusterPrime, class ClusterSecondary>
+        constexpr bool IsAllUniqueHelper(){ 
+            static_assert(cluster_id_v<ClusterPrime> != cluster_id_v<ClusterSecondary>);
+            return cluster_id_v<ClusterPrime> != cluster_id_v<ClusterSecondary>; }
+
+        template<class ClusterPrime, class ClusterSecondary, class... Clusters> requires (sizeof...(Clusters) > 0)
+        constexpr bool IsAllUniqueHelper(){ return IsAllUniqueHelper<ClusterPrime,ClusterSecondary>() && IsAllUniqueHelper<ClusterPrime, Clusters...>(); }
+
+        template<class ClusterPrime>
+        constexpr bool IsAllUniquePrimaryHelper(){ return true; }
+
+        template<class ClusterPrime, class ClusterSecondary>
+        constexpr bool IsAllUniquePrimaryHelper(){ return IsAllUniqueHelper<ClusterPrime, ClusterSecondary>(); }
+
+        template<class ClusterPrime, class... Clusters> requires (sizeof...(Clusters) > 1)
+        constexpr bool IsAllUniquePrimaryHelper()
+        { 
+            return IsAllUniqueHelper<ClusterPrime, Clusters...>() && IsAllUniquePrimaryHelper<Clusters...>(); 
+        }
+
+        template<class... Clusters>
+        constexpr bool kAllUniqueIds = IsAllUniquePrimaryHelper<Clusters...>();
+    };
 }
 #endif

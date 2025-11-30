@@ -36,7 +36,10 @@ namespace zb
     };
 
     template<EPBaseInfo i, class... Bases>
-    constexpr auto make_ep_args(Bases&...b) { return ep_args_t<i, Bases...>{b...}; }
+    constexpr auto make_ep_args(Bases&...b) { 
+        static_assert(cluster_tools::kAllUniqueIds<Bases...>, "No duplicated cluster Id is allowed!");
+        return ep_args_t<i, Bases...>{b...}; 
+    }
 
     template<EPBaseInfo i, ZigbeeClusterStruct... ClusterTypes>
     struct EPDescSelfContained
