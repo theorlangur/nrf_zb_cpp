@@ -57,52 +57,70 @@ namespace zb
             return *(T*)&p->values.data_ieee;
     }
 
-    template<class T, TypedSetHandlerV1<T> F>
-    struct typed_set_attr_value_handler<F>
+    namespace internals
     {
-        static constexpr bool value = true;
-        static void handle(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam) { F(get_typed_data<T>(p)); }
-    };
+        template<class T, auto F>
+        struct set_attr_v1
+        {
+            using Arg = T;
+            static constexpr bool value = true;
+            template<std::convertible_to<T> AttrType = T>
+            static void handle(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam) 
+            { 
+                F(get_typed_data<AttrType>(p)); 
+            }
+        };
+
+        template<class T, auto F>
+        struct set_attr_v2
+        {
+            using Arg = T;
+            static constexpr bool value = true;
+            template<std::convertible_to<T> AttrType = T>
+            static void handle(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam) 
+            { 
+                F(get_typed_data<AttrType>(p), pDevCBParam); 
+            }
+        };
+
+        template<class T, auto F>
+        struct set_attr_v3
+        {
+            using Arg = T;
+            static constexpr bool value = true;
+            template<std::convertible_to<T> AttrType = T>
+            static void handle(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam) 
+            { 
+                F(get_typed_data<AttrType>(p), pDevCBParam, p); 
+            }
+        };
+    }
+
+
+    template<class T, TypedSetHandlerV1<T> F>
+    struct typed_set_attr_value_handler<F>: internals::set_attr_v1<T, F> {};
 
     template<class T, TypedSetHandlerV1_Copy<T> F>
-    struct typed_set_attr_value_handler<F>
-    {
-        static constexpr bool value = true;
-        static void handle(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam) { F(get_typed_data<T>(p)); }
-    };
+    struct typed_set_attr_value_handler<F>: internals::set_attr_v1<T, F> {};
 
     template<class T, TypedSetHandlerV2<T> F>
-    struct typed_set_attr_value_handler<F>
-    {
-        static constexpr bool value = true;
-        static void handle(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam) { F(get_typed_data<T>(p), pDevCBParam); }
-    };
+    struct typed_set_attr_value_handler<F>: internals::set_attr_v2<T, F> {};
 
     template<class T, TypedSetHandlerV2_Copy<T> F>
-    struct typed_set_attr_value_handler<F>
-    {
-        static constexpr bool value = true;
-        static void handle(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam) { F(get_typed_data<T>(p), pDevCBParam); }
-    };
+    struct typed_set_attr_value_handler<F>: internals::set_attr_v2<T, F> {};
 
     template<class T, TypedSetHandlerV3<T> F>
-    struct typed_set_attr_value_handler<F>
-    {
-        static constexpr bool value = true;
-        static void handle(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam) { F(get_typed_data<T>(p), pDevCBParam, p); }
-    };
+    struct typed_set_attr_value_handler<F>: internals::set_attr_v3<T, F> {};
 
     template<class T, TypedSetHandlerV3_Copy<T> F>
-    struct typed_set_attr_value_handler<F>
-    {
-        static constexpr bool value = true;
-        static void handle(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam) { F(get_typed_data<T>(p), pDevCBParam, p); }
-    };
+    struct typed_set_attr_value_handler<F>: internals::set_attr_v3<T, F> {};
 
     template<TypedSetHandlerV4 F>
     struct typed_set_attr_value_handler<F>
     {
+        using Arg = void;
         static constexpr bool value = true;
+        template<class Dummy>
         static void handle(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam) { F(); }
     };
 
@@ -117,6 +135,20 @@ namespace zb
 
     template<auto F>
     constexpr static auto to_handler_v = to_handler_t<F>::value;
+
+    template<auto kAttr, auto f>
+    constexpr set_attr_val_gen_desc_t handle_set_for(auto &ep)
+    {
+        using fArg = std::remove_cvref_t<typename typed_set_attr_value_handler<f>::Arg>;
+        using MemType = std::remove_cvref_t<typename mem_ptr_traits<decltype(kAttr)>::MemberType>;
+        if constexpr (std::is_same_v<fArg, MemType>)//same types - simple
+            return zb::set_attr_val_gen_desc_t{ep.template attribute_desc<kAttr>(), zb::to_handler_v<f>};
+        else
+        {
+            static_assert(std::is_convertible_v<fArg, MemType>, "Cannot convert attribute member type to set function 1st argument type");
+            return zb::set_attr_val_gen_desc_t{ep.template attribute_desc<kAttr>(), typed_set_attr_value_handler<f>::template handle<MemType>};
+        }
+    }
 
     struct SetAttrValHandlingNode: GenericNotificationNode<SetAttrValHandlingNode>
     {
