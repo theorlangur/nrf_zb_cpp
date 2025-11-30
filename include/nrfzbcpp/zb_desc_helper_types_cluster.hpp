@@ -502,6 +502,9 @@ namespace zb
     template<cluster_info_t ci, auto attributes = cluster_attributes_desc_t<>{}, auto cmds = cluster_commands_desc_t<>{}>//auto = cluster_attributes_desc_t
     using cluster_t = cluster_struct_desc_t<ci, attributes, cmds>;
 
+    template<class ClusterType>
+    constexpr zb_uint16_t cluster_id_v = zb::zcl_description_t<ClusterType>::get().info().id;
+
     template<class T, class DestT, class MemType> requires std::is_base_of_v<DestT, T>
     constexpr ADesc<MemType> cluster_mem_to_attr_desc(T& s, cluster_mem_desc_t<DestT,MemType> d) { return {.id = d.id, .a = d.a, .pData = &(s.*d.m), .type = d.type}; }
 
