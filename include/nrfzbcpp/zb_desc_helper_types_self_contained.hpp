@@ -35,6 +35,19 @@ namespace zb
         using EPArgsListContainerMem<Bases>::get...; 
     };
 
+    /**********************************************************************/
+    /* Template logic to check for duplicate ep ids                       */
+    /**********************************************************************/
+    namespace ep_tools
+    {
+        template<class X>
+        struct EPIdGetter { static constexpr auto id() { return X::ep_id(); } };
+
+        template<class... EPs>
+        constexpr bool kAllUniqueIds = tpl_tools::kAllUniqueIdsT<EPIdGetter, EPs...>;
+    };
+
+
     template<EPBaseInfo i, class... Bases>
     constexpr auto make_ep_args(Bases&...b) { 
         static_assert(cluster_tools::kAllUniqueIds<Bases...>, "No duplicated cluster Id is allowed!");
@@ -116,6 +129,7 @@ namespace zb
     template<class... EPSelfContainedTypes>
     struct DeviceFull
     {
+        static_assert(ep_tools::kAllUniqueIds<EPSelfContainedTypes...>, "All EP ids must be unique!");
         static constexpr size_t N = sizeof...(EPSelfContainedTypes);
 
         template<class... EPArgs>

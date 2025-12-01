@@ -99,6 +99,18 @@ namespace zb
         static constexpr auto cmd_desc() { static_assert(sizeof(memPtr) == 0, "Pointer to a member is not an attribte"); }
     };
 
+    /**********************************************************************/
+    /* Template logic to check for duplicate attribute ids                  */
+    /**********************************************************************/
+    namespace attribute_tools
+    {
+        template<auto X>
+        struct AttributeIdGetter { static constexpr auto id() { return X.id; } };
+
+        template<auto... Attributes>
+        constexpr bool kAllUniqueIds = tpl_tools::kAllUniqueIds<AttributeIdGetter, Attributes...>;
+    };
+
     //helper for commands
 
     template<auto MemPtr>
@@ -383,9 +395,25 @@ namespace zb
     template<cmd_cfg_t cfg, class... Args>
     using cmd_generic_t = cluster_cmd_desc_t<cfg, Args...>;
 
+    /**********************************************************************/
+    /* Template logic to check for duplicate cmd ids                      */
+    /**********************************************************************/
+    namespace cmd_tools
+    {
+        template<auto X>
+        struct CmdIdGetter
+        {
+            static constexpr auto id() { return CmdIdFromCmdMemPtr<X>; }
+        };
+
+        template<auto... Cmds>
+        constexpr bool kAllUniqueIds = tpl_tools::kAllUniqueIds<CmdIdGetter, Cmds...>;
+    };
+
     template<auto... attributeMemberDesc>
     struct cluster_attributes_desc_t
     {
+        static_assert(attribute_tools::kAllUniqueIds<attributeMemberDesc...>, "All attribute ids must be unique!");
         static constexpr inline size_t count_members_with_access(Access a) { return ((size_t)attributeMemberDesc.has_access(a) + ... + 0); }
         static constexpr inline size_t count_cvc_members() { return ((size_t)attributeMemberDesc.is_cvc() + ... + 0); }
         template<auto memPtr>
@@ -404,6 +432,7 @@ namespace zb
     template<auto... cmdMemberDesc>
     struct cluster_commands_desc_t
     {
+        static_assert(cmd_tools::kAllUniqueIds<cmdMemberDesc...>, "All command ids must be unique!");
         static constexpr size_t kCmdCount = sizeof...(cmdMemberDesc);
         template<auto memPtr>
         static constexpr inline auto get_cmd_description() { return find_cluster_cmd_desc_t<memPtr, cmdMemberDesc...>::cmd_desc(); }
