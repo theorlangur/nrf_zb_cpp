@@ -72,19 +72,16 @@ namespace zb
         template<class CfgPrime, class CfgSecondary>
         constexpr bool IsAllUniqueHelper(){ return !std::is_same_v<CfgPrime, CfgSecondary>; }
 
-        template<class CfgPrime, class CfgSecondary, class... Cfg>
+        template<class CfgPrime, class CfgSecondary, class... Cfg> requires (sizeof...(Cfg) > 0)
         constexpr bool IsAllUniqueHelper(){ return !std::is_same_v<CfgPrime, CfgSecondary> && IsAllUniqueHelper<CfgPrime, Cfg...>(); }
 
-        template<class CfgPrime, class Cfg>
-        constexpr bool IsAllUniquePrimaryHelper(){ return IsAllUniqueHelper<CfgPrime, Cfg>(); }
+        template<class... Cfg> requires (sizeof...(Cfg) <= 2)
+        constexpr bool IsAllUniquePrimaryHelper(){ return IsAllUniqueHelper<Cfg...>(); }
 
-        template<class CfgPrime, class... Cfg>
+        template<class CfgPrime, class... Cfg> requires (sizeof...(Cfg) > 1)
         constexpr bool IsAllUniquePrimaryHelper()
         { 
-            if constexpr(sizeof...(Cfg) > 1)
-                return IsAllUniqueHelper<CfgPrime, Cfg...>() && IsAllUniquePrimaryHelper<Cfg...>(); 
-            else
-                return IsAllUniqueHelper<CfgPrime, Cfg...>();
+            return IsAllUniqueHelper<CfgPrime, Cfg...>() && IsAllUniquePrimaryHelper<Cfg...>(); 
         }
 
         template<class... Cfg>
@@ -148,6 +145,7 @@ namespace zb
     using zb_zcl_occupancy_pir_t = zb_zcl_occupancy_tpl_t<zb_zcl_cfg_pir_t>;
     using zb_zcl_occupancy_ultrasonic_t = zb_zcl_occupancy_tpl_t<zb_zcl_cfg_ultrasonic_t>;
     using zb_zcl_occupancy_physical_contact_t = zb_zcl_occupancy_tpl_t<zb_zcl_cfg_physical_contact_t>;
+    using zb_zcl_occupancy_pir_and_ultrasonic_t = zb_zcl_occupancy_tpl_t<zb_zcl_cfg_pir_t, zb_zcl_cfg_ultrasonic_t>;
 
     /**********************************************************************/
     /* Template magic pieces                                              */

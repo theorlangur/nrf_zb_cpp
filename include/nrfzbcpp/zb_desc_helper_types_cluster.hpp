@@ -543,9 +543,43 @@ namespace zb
         return MakeAttributeList(&s, cluster_mem_to_attr_desc(s, ClusterMemDescriptions)...);
     }
 
+    /**********************************************************************/
+    /* Template logic to check for duplicate cluster ids                  */
+    /**********************************************************************/
+    namespace cluster_tools
+    {
+        template<class X>
+        struct ClusterIdGetter { static constexpr auto id() { return cluster_id_v<X>; } };
+
+        template<class... Clusters>
+        constexpr bool kAllUniqueIds = tpl_tools::kAllUniqueIdsT<ClusterIdGetter, Clusters...>;
+
+        template<class Cluster>
+        constexpr bool AllClientClustersAtEnd() { return true; }
+
+        template<class FirstCluster, class NextCluster, class... RestClusters> requires (FirstCluster::is_role(Role::Client))
+        constexpr bool AllClientClustersAtEnd()
+        {
+            //skip until first client server
+            static_assert(FirstCluster::is_role(Role::Client) == NextCluster::is_role(Role::Client), "Client (output) clusters must be grouped at the end!");
+            return NextCluster::is_role(Role::Client) && AllClientClustersAtEnd<FirstCluster, RestClusters...>();
+        }
+
+        template<class FirstCluster, class... RestClusters> requires ((sizeof...(RestClusters) > 0) && FirstCluster::is_role(Role::Server))
+        constexpr bool AllClientClustersAtEnd()
+        {
+            //skip until first client server
+            return AllClientClustersAtEnd<RestClusters...>();
+        }
+
+        template<class... Clusters>
+        constexpr bool kAllClientClustersAtEnd = AllClientClustersAtEnd<Clusters...>();
+    };
+
     template<uint8_t ep, class... T>
     struct TClusterList
     {
+        static_assert(cluster_tools::kAllClientClustersAtEnd<T...>, "Client (output) clusters must be grouped at the end!");
         static constexpr size_t N = sizeof...(T);
 
         TClusterList(TClusterList const&) = delete;
@@ -639,37 +673,5 @@ namespace zb
                     );
         }
     }
-
-    /**********************************************************************/
-    /* Template logic to check for duplicate cluster ids                  */
-    /**********************************************************************/
-    namespace cluster_tools
-    {
-        template<class Cluster>
-        constexpr bool IsAllUniqueHelper(){ return true; }
-
-        template<class ClusterPrime, class ClusterSecondary>
-        constexpr bool IsAllUniqueHelper(){ 
-            static_assert(cluster_id_v<ClusterPrime> != cluster_id_v<ClusterSecondary>);
-            return cluster_id_v<ClusterPrime> != cluster_id_v<ClusterSecondary>; }
-
-        template<class ClusterPrime, class ClusterSecondary, class... Clusters> requires (sizeof...(Clusters) > 0)
-        constexpr bool IsAllUniqueHelper(){ return IsAllUniqueHelper<ClusterPrime,ClusterSecondary>() && IsAllUniqueHelper<ClusterPrime, Clusters...>(); }
-
-        template<class ClusterPrime>
-        constexpr bool IsAllUniquePrimaryHelper(){ return true; }
-
-        template<class ClusterPrime, class ClusterSecondary>
-        constexpr bool IsAllUniquePrimaryHelper(){ return IsAllUniqueHelper<ClusterPrime, ClusterSecondary>(); }
-
-        template<class ClusterPrime, class... Clusters> requires (sizeof...(Clusters) > 1)
-        constexpr bool IsAllUniquePrimaryHelper()
-        { 
-            return IsAllUniqueHelper<ClusterPrime, Clusters...>() && IsAllUniquePrimaryHelper<Clusters...>(); 
-        }
-
-        template<class... Clusters>
-        constexpr bool kAllUniqueIds = IsAllUniquePrimaryHelper<Clusters...>();
-    };
 }
 #endif
