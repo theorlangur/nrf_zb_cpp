@@ -138,11 +138,16 @@ namespace zb
     static constexpr uint16_t kZB_ZCL_MY_CLUSTER_ID = 0xfc01;
     static constexpr uint16_t kZB_MY_ATTR1_ID = 0x0000;
     static constexpr uint16_t kZB_MY_ATTR2_ID = 0x0001;
+    static constexpr uint8_t kZB_MY_INBOUND_CMD_ID = 0x01;
+    static constexpr uint8_t kZB_MY_OUTBOUND_CMD_ID = 0x02;
 
     struct zb_zcl_my_cluster_t
     {
 	uint8_t attr1;
 	float attr2;
+
+	cmd_in_t<kZB_MY_INBOUND_CMD_ID, float/*arg1*/, uint8_t/*arg2*/> my_inbound_cmd1;
+	cmd_pool_t<kZB_MY_OUTBOUND_CMD_ID, 3/*pool size*/, uint8_t/*arg1*/> my_outbound_cmd2;
     };
 
     //This is important as it actually makes 'zb_zcl_my_cluster_t' type
@@ -157,7 +162,11 @@ namespace zb
                 attributes_t<
                     attribute_t{.m = &T::attr1,.id = kZB_MY_ATTR1_ID, .a=Access::RW/*, .type=Type::U8 <- autodeduced, but can be explicit, see zb::Type in zb_types.hpp*/}
                     ,attribute_t{.m = &T::attr2,.id = kZB_MY_ATTR2_ID, .a=Access::RP}
-                >{}
+                >{},
+		commands_t<
+		    &T::my_inbound_cmd1,
+		    &T::my_outbound_cmd2
+		>{}
             >{};
         }
     };
@@ -171,6 +180,10 @@ struct device_ctx_t{
 };
 constexpr auto kA1 = &zb::zb_zcl_my_cluster_t::attr1;
 constexpr auto kA2 = &zb::zb_zcl_my_cluster_t::attr2;
+constexpr auto kCmdOut = &zb::zb_zcl_my_cluster_t::my_outbound_cmd2;
+
+//forward declaration of the inbound command handler
+CmdHandlingResult my_inbound_cmd1_handler(float a1, uint8_t a2);
 
 /* Zigbee device application context storage. */
 //Here lives actual data of the clusters
@@ -186,6 +199,7 @@ static constinit device_ctx_t dev_ctx{
     .my_cluster = {
 	.attr1 = 2,//some initial value
 	.attr2 = 1,//some initial value
+	.my_inbound_cmd1 = {.cb = my_inbound_cmd1_handler}
     }
 };
 
@@ -201,6 +215,13 @@ constinit static auto &zb_ep = zb_ctx.ep<1>();
 //...and usage
 zb_ep.attr<kA1>() = 16;
 zb_ep.attr<kA2>() = 1024.56f;
+zb_ep.send_cmd<kCmdOut>(42/*Arg1, uint8_t*/);
+...
+CmdHandlingResult my_inbound_cmd1_handler(float a1, uint8_t a2)
+{
+    //handling incoming zb::kZB_MY_INBOUND_CMD_ID
+    return {};
+}
 ```
 
 ### Defining commands
@@ -232,8 +253,8 @@ namespace zb
     {
 	uint8_t attr1;
 	float attr2;
-	[[no_unique_address]]cluster_std_cmd_desc_t<kZB_MY_CMD1,int16_t> my_command1;
-	[[no_unique_address]]cluster_std_cmd_desc_t<kZB_MY_CMD2,cmd2_args> my_command2;
+	[[no_unique_address]]cmd_generic_t<{.cmd_id=kZB_MY_CMD1}, int16_t> my_command1;
+	[[no_unique_address]]cmd_generic_t<{.cmd_id=kZB_MY_CMD2}, cmd2_args> my_command2;
     };
 
     template<>
