@@ -41,7 +41,7 @@ namespace zb
     using mem_attr_t = MemType T::*;
 
     template<class T, class MemType>
-    struct cluster_mem_desc_t
+    struct attribute_mem_desc_t
     {
         using MemT = MemType;
 
@@ -76,27 +76,27 @@ namespace zb
         } 
     };
     template<class T, class MemType>
-    using attribute_t = cluster_mem_desc_t<T, MemType>;
+    using attribute_t = attribute_mem_desc_t<T, MemType>;
 
     //helper for attributes
-    template<auto memPtr, auto...ClusterMemDescriptions>
-    struct find_cluster_mem_desc_t;
+    template<auto memPtr, auto...Attributes>
+    struct find_attribute_by_mem_ptr_t;
 
-    template<auto memPtr, auto MemDesc, auto...ClusterMemDescriptions> requires (MemDesc.m == memPtr)
-    struct find_cluster_mem_desc_t<memPtr, MemDesc, ClusterMemDescriptions...>
+    template<auto memPtr, auto MemDesc, auto...Attributes> requires (MemDesc.m == memPtr)
+    struct find_attribute_by_mem_ptr_t<memPtr, MemDesc, Attributes...>
     {
         static constexpr auto mem_desc() { return MemDesc; }
     };
 
-    template<auto memPtr, auto MemDesc, auto...ClusterMemDescriptions>
-    struct find_cluster_mem_desc_t<memPtr, MemDesc, ClusterMemDescriptions...>: find_cluster_mem_desc_t<memPtr, ClusterMemDescriptions...>
+    template<auto memPtr, auto MemDesc, auto...Attributes>
+    struct find_attribute_by_mem_ptr_t<memPtr, MemDesc, Attributes...>: find_attribute_by_mem_ptr_t<memPtr, Attributes...>
     {
     };
 
     template<auto memPtr>
-    struct find_cluster_mem_desc_t<memPtr>
+    struct find_attribute_by_mem_ptr_t<memPtr>
     {
-        static constexpr auto cmd_desc() { static_assert(sizeof(memPtr) == 0, "Pointer to a member is not an attribte"); }
+        static constexpr auto mem_desc() { static_assert(sizeof(memPtr) == 0, "Pointer to a member is not an attribute"); }
     };
 
     /**********************************************************************/
@@ -417,7 +417,7 @@ namespace zb
         static constexpr inline size_t count_members_with_access(Access a) { return ((size_t)attributeMemberDesc.has_access(a) + ... + 0); }
         static constexpr inline size_t count_cvc_members() { return ((size_t)attributeMemberDesc.is_cvc() + ... + 0); }
         template<auto memPtr>
-        static constexpr inline auto get_member_description() { return find_cluster_mem_desc_t<memPtr, attributeMemberDesc...>::mem_desc(); }
+        static constexpr inline auto get_member_description() { return find_attribute_by_mem_ptr_t<memPtr, attributeMemberDesc...>::mem_desc(); }
 
         template<auto... attributeMemberDesc2>
         friend constexpr auto operator+(cluster_attributes_desc_t<attributeMemberDesc...> lhs, cluster_attributes_desc_t<attributeMemberDesc2...> rhs)
@@ -535,12 +535,12 @@ namespace zb
     constexpr zb_uint16_t cluster_id_v = zb::zcl_description_t<ClusterType>::get().info().id;
 
     template<class T, class DestT, class MemType> requires std::is_base_of_v<DestT, T>
-    constexpr ADesc<MemType> cluster_mem_to_attr_desc(T& s, cluster_mem_desc_t<DestT,MemType> d) { return {.id = d.id, .a = d.a, .pData = &(s.*d.m), .type = d.type}; }
+    constexpr ADesc<MemType> attribute_declaration_to_real_attribute_description(T& s, attribute_mem_desc_t<DestT,MemType> d) { return {.id = d.id, .a = d.a, .pData = &(s.*d.m), .type = d.type}; }
 
     template<class T,cluster_info_t ci, auto... ClusterMemDescriptions, cluster_attributes_desc_t<ClusterMemDescriptions...> attributes, cluster_commands_desc_t cmds>
     constexpr auto cluster_struct_to_attr_list(T &s, cluster_struct_desc_t<ci, attributes, cmds>)
     {
-        return MakeAttributeList(&s, cluster_mem_to_attr_desc(s, ClusterMemDescriptions)...);
+        return MakeAttributeList(&s, attribute_declaration_to_real_attribute_description(s, ClusterMemDescriptions)...);
     }
 
     /**********************************************************************/
