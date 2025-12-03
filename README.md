@@ -17,6 +17,7 @@
   * [Attributes](#attributes)
   * [Clusters](#clusters)
   * [End Points](#end-points)
+  * [Commands subsystem](#commands-subsystem)
 * [Known issues with compilers](#known-issues-with-compilers)
 
 <!-- mtoc-end -->
@@ -527,12 +528,51 @@ ZB_ZCL_REGISTER_DEVICE_CB(dev_cb);
 Many/all features of this library is built around templates and NTTP's.
 
 ### Attributes
-TODO
-
+ * Main description structure for attributes is `zb::attribute_mem_desc_t` (aliased as `zb::attribute_t`). It's a constexpr-capable
+    struct with the following members:
+     - `m` - a reference to a member variable (that'll hold the actual data for the attribute)
+     - `id` - as per Zigbee spec a uint16_t ID of the attribute
+     - `a` - access type for the attribute (see `zb::Access` enum)
+     - `type` - a Zigbee type of the attribute. See `zb::Type` enum for allowed values. It can be 
+	auto-inferred with the help of `zb::TypeToTypeId` or defined explicitly at the point of declaration of the cluster.
+     - `has_access`: a constexpr method given a `zb::Access` as an argument returns `true` if bit-and operation with own `a` is non-0
+     - `is_cvc`: a constexpr method that returns `true` if the `type` of the attribute belongs to the types that are `reportable` (I'm
+       not sure about the precise definition, but ZBOSS seems to require a proper count of such attributes in order to properly consifugre reporting
+       for them)
+ * `zb::find_attribute_by_mem_ptr_t` is a template for searching an attribute description (`zb::attribute_mem_desc_t`) by a pointer to a member
+ * `zb::cluster_attributes_desc_t` is a class template that exists only to store attribute descriptions as its variadic NTTPs. 
+    - operator `+`: for convenience purposes so that you could add another such `zb::cluster_attributes_desc_t` and get a new `zb::cluster_attributes_desc_t`
+	combining attribute descriptions of 2 operands.
+    - `count_members_with_access`: a constexpr static method allowing to count amount attribute descriptions with a given `zb::Access` type
+      by calling `zb::attribute_mem_desc_t::has_access` for all attribute descriptions and counting the amount of `true` returned.
+    - `count_cvc_members`: a constexpr static method allowing to count amount attribute descriptions with reportable types
+      by calling `zb::attribute_mem_desc_t::is_cvc` for all attribute descriptions and counting the amount of `true` returned.
+ * `TAttributeList<StructTag, N>`: a key template class for defining runtime (const-initialized) data needed for ZBOSS.
+    - `StructTag`: is a C++ struct type where attribute's actual member belongs to (e.g. `zb::zb_zcl_basic_names_t`).
+    - `N`: total amount of attributes in the cluster. `attributes` array member is defined based on the `N` (+2, for the first mandatory
+      `ZB_ZCL_ATTR_GLOBAL_CLUSTER_REVISION_ID` and the last `ZB_ZCL_NULL_ID`.
+    - `cluster_struct`: it's an actual pointer to the `StructTag` variable so that at runtime correct pointers based on the pointers to members
+      could be inferred and used to set/get the attribute data.
+    - `rev`: a cluster revision (used as a data storage for `ZB_ZCL_ATTR_GLOBAL_CLUSTER_REVISION_ID` mandatory first attribute)
+    - `received_commands`: list of command ids that may be received for this cluster
+    - `generated_commands`: list of command ids that may be generated (sent) by this cluster
+    - `cmd_list`: a ZBOSS definition of the command lists with the amount of commands of each type (receive/generate)
+    - `constructor` accepts the pointer to the actual `StructTag` (will be written to `cluster_struct`) and a variadic amount of `zb::ADesc` types.
+ * `zb::ADesc`  is the same as `zb::attribute_mem_desc_t` but contains an actual pointer to the data and not a member pointer.
+ * `AttrDesc` is a function to convert a `zb::ADesc` to a `zb_zcl_attr_t` (what ZBOSS wants)
+ * `attribute_declaration_to_real_attribute_description`: given a reference to a cluster type `T` (actual C++ struct type to store attribute data in members)
+   and an attribute declaration `zb::attribute_mem_desc_t` it returns a correspoinding `ADesc` with an actual pointer to attribute data.
 ### Clusters
+* `czcl_description_tluster_struct_desc_t`
+* `zcl_description_t`
+* `cluster_struct_to_attr_list`
+* `TClusterList`
 TODO
 
 ### End Points
+TODO
+
+### Commands subsystem
 TODO
 
 ## Known issues with compilers
