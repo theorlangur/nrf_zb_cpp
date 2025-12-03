@@ -14,6 +14,9 @@
     * [Low-level raw approach](#low-level-raw-approach)
     * [Higher level typed approach (not safe though)](#higher-level-typed-approach-not-safe-though)
 * [Internals](#internals)
+  * [Attributes](#attributes)
+  * [Clusters](#clusters)
+  * [End Points](#end-points)
 * [Known issues with compilers](#known-issues-with-compilers)
 
 <!-- mtoc-end -->
@@ -521,6 +524,15 @@ ZB_ZCL_REGISTER_DEVICE_CB(dev_cb);
 ```
 
 ## Internals
+Many/all features of this library is built around templates and NTTP's.
+
+### Attributes
+TODO
+
+### Clusters
+TODO
+
+### End Points
 TODO
 
 ## Known issues with compilers
