@@ -3,10 +3,19 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/adc.h>
+#include <zephyr/drivers/regulator.h>
 #include "zb_power_config_cluster_desc.hpp"
 
 namespace zb
 {
+    struct RegRAII
+    {
+        RegRAII(const struct device *pD):pDev(pD){ if (pDev) regulator_enable(pDev); }
+        ~RegRAII() { if (pDev) regulator_disable(pDev); }
+    private:
+        const struct device *pDev;
+    };
+
     struct battery_cfg
     {
         int battery_adc_channel = 0;
@@ -24,9 +33,11 @@ namespace zb
 
         EP &zb_ep;
         const struct adc_dt_spec *adc_channels;
+        const struct device *regulator;
 
         void update()
         {
+            RegRAII batteryRegulator(regulator);
             uint16_t buf;
             struct adc_sequence sequence = {
                 .buffer = &buf,
@@ -78,9 +89,9 @@ namespace zb
     constinit BatteryMeasurementsBlock<cfg, EP> *BatteryMeasurementsBlock<cfg, EP>::g_Battery = nullptr;
 
     template<battery_cfg cfg, class EP>
-    constexpr auto make_battery_measurements_block(EP &e, const struct adc_dt_spec *adc_channels)
+    constexpr auto make_battery_measurements_block(EP &e, const struct adc_dt_spec *adc_channels, const struct device *reg = nullptr)
     {
-        return BatteryMeasurementsBlock<cfg, EP>{e, adc_channels};
+        return BatteryMeasurementsBlock<cfg, EP>{e, adc_channels, reg};
     }
 }
 #endif
