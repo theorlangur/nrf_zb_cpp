@@ -12,6 +12,11 @@ namespace zb
     {
         zb_uint16_t app_cluster_list_ext[(ServerCount + ClientCount) - 2];
     } ZB_PACKED_STRUCT;
+
+    template<size_t ServerCount, size_t ClientCount> requires ((ServerCount + ClientCount) < 2)
+    struct ZB_PACKED_PRE TSimpleDesc<ServerCount, ClientCount>: zb_af_simple_desc_1_1_t
+    {
+    } ZB_PACKED_STRUCT;
     
     template<cluster_info_t ci, auto mem_desc, bool withCheck> requires requires { typename decltype(mem_desc)::MemT; }
     struct AttributeAccess
@@ -105,6 +110,40 @@ namespace zb
                 .reserved_size = 0,
                 .reserved_ptr = nullptr,
                 .cluster_count = sizeof...(T) + 2,
+                .cluster_desc_list = clusters.clusters,
+                .simple_desc = &simple_desc,
+                .rep_info_count = Clusters::reporting_attributes_count(),
+                .reporting_info = rep_ctx,
+                .cvc_alarm_count = Clusters::cvc_attributes_count(),
+                .cvc_alarm_info = cvc_alarm_ctx
+            }
+        {
+        }
+
+        template<class T1, class... T> requires (std::is_same_v<TClusterList<i.ep, T1, T...>, Clusters> && (Clusters::server_cluster_count() + Clusters::client_cluster_count() < 2))
+        constexpr EPDesc(TClusterList<i.ep, T1, T...> &clusters):
+            simple_desc{ 
+                {
+                    .endpoint = i.ep, 
+                    .app_profile_id = ZB_AF_HA_PROFILE_ID, 
+                    .app_device_id = i.dev_id,
+                    .app_device_version = i.dev_ver,
+                    .reserved = 0,
+                    .app_input_cluster_count = Clusters::server_cluster_count(),
+                    .app_output_cluster_count = Clusters::client_cluster_count(),
+                    .app_cluster_list = {T1::info().id}
+                }
+            },
+            rep_ctx{},
+            cvc_alarm_ctx{},
+            ep{
+                .ep_id = i.ep,
+                .profile_id = ZB_AF_HA_PROFILE_ID,
+                .device_handler = nullptr,
+                .identify_handler = nullptr,
+                .reserved_size = 0,
+                .reserved_ptr = nullptr,
+                .cluster_count = sizeof...(T) + 1,
                 .cluster_desc_list = clusters.clusters,
                 .simple_desc = &simple_desc,
                 .rep_info_count = Clusters::reporting_attributes_count(),
