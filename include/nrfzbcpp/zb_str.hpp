@@ -87,6 +87,44 @@ namespace zb
         static constexpr Type TypeId() { return Type::CharStr; }
     };
 
+    template<size_t N>
+    struct ZigbeeBin
+    {
+        uint8_t data[N];
+
+        template<class T, size_t M, size_t...idx>
+        constexpr ZigbeeBin(std::index_sequence<idx...>, std::array<T, M> const &n):
+            data{ M-1, n[idx]... }
+        {
+        }
+
+        template<class T, size_t M>
+        constexpr ZigbeeBin(std::array<T, M> const& n):
+            ZigbeeBin(std::make_index_sequence<M-1>(), n)
+        {
+        }
+
+        constexpr ZigbeeBin():
+            data{0}
+        {
+        }
+
+        operator void*() { return data; }
+        size_t size() const { return N - 1; }
+        std::span<const uint8_t> sv() const { return {data + 1, N - 1}; }
+
+        template<size_t M>
+        ZigbeeBin<N>& operator=(std::array<uint8_t, M> const& n)
+        {
+            static_assert(M <= N, "String literal is too big");
+            data[0] = M - 1;
+            std::memcpy(data + 1, n, M - 1);
+            return *this;
+        }
+
+        static constexpr Type TypeId() { return Type::OctetStr; }
+    };
+
 
     template<size_t N>
     constexpr ZigbeeStr<N> ZbStr(const char (&n)[N])
