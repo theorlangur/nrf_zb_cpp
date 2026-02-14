@@ -126,7 +126,7 @@ namespace zb
     template<class T>
     using EPDescTypeFromArgT = EPDescTypeFromArg<T>::type;
 
-    template<class... EPSelfContainedTypes>
+    template<class... EPSelfContainedTypes>//see EPDescSelfContained<...>, EPDesc<...>
     struct DeviceFull
     {
         static_assert(ep_tools::kAllUniqueIds<EPSelfContainedTypes...>, "All EP ids must be unique!");
