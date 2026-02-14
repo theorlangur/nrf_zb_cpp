@@ -15,6 +15,8 @@
     * [Higher level typed approach (not safe though)](#higher-level-typed-approach-not-safe-though)
 * [Internals](#internals)
   * [Attributes](#attributes)
+    * [Attributes for custom structs](#attributes-for-custom-structs)
+    * [Attribute validation](#attribute-validation)
   * [Clusters](#clusters)
   * [End Points](#end-points)
   * [Commands subsystem](#commands-subsystem)
@@ -585,6 +587,13 @@ Many/all features of this library is built around templates and NTTP's.
  * `AttrDesc` is a function to convert a `zb::ADesc` to a `zb_zcl_attr_t` (what ZBOSS wants)
  * `attribute_declaration_to_real_attribute_description`: given a reference to a cluster type `T` (actual C++ struct type to store attribute data in members)
    and an attribute declaration `zb::attribute_mem_desc_t` it returns a correspoinding `ADesc` with an actual pointer to attribute data.
+#### Attributes for custom structs
+TODO: custom types wrapper `ZigbeeBinTyped`
+
+#### Attribute validation
+TODO: describe `validator` field of `zb::attribute_mem_desc_t`
+TODO: describe `Validate` method of custom types wrapped in `ZigbeeBinTyped`
+
 ### Clusters
 * `zb::cluster_info_t` is a structure for a basic cluster description, consists of following members:
   - `zb_uint16_t id` (**`mandatory`**) - cluster ID according to Zigbee spec
