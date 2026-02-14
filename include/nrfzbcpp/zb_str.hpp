@@ -85,6 +85,7 @@ namespace zb
         }
 
         static constexpr Type TypeId() { return Type::CharStr; }
+        static bool TypeValidator(uint8_t *value) { return *value < N; }
     };
 
     template<size_t N>
@@ -123,30 +124,31 @@ namespace zb
         }
 
         static constexpr Type TypeId() { return Type::OctetStr; }
+        static bool TypeValidator(uint8_t *value) { return *value < N; }
     };
 
     template<class T, size_t N> requires (std::is_trivially_copyable_v<T>
             && std::is_trivially_constructible_v<T>)
-    struct [[gnu::packed]] ZigbeeBinTyped
+    struct [[gnu::packed]] ZigbeeBinTypedArray
     {
         uint8_t len_bytes;
         T data[N];
 
         template<size_t M, size_t...idx>
-        constexpr ZigbeeBinTyped(std::index_sequence<idx...>, std::array<T, M> const &n):
+        constexpr ZigbeeBinTypedArray(std::index_sequence<idx...>, std::array<T, M> const &n):
             len_bytes{sizeof(T) * M},
-            data{ M-1, n[idx]... }
+            data{ n[idx]... }
         {
             static_assert(sizeof(T) * M <= 255);
         }
 
         template<size_t M>
-        constexpr ZigbeeBinTyped(std::array<T, M> const& n):
-            ZigbeeBinTyped(std::make_index_sequence<M-1>(), n)
+        constexpr ZigbeeBinTypedArray(std::array<T, M> const& n):
+            ZigbeeBinTypedArray(std::make_index_sequence<M>(), n)
         {
         }
 
-        constexpr ZigbeeBinTyped():
+        constexpr ZigbeeBinTypedArray():
             len_bytes{0}
             , data{}
         {
@@ -155,14 +157,43 @@ namespace zb
         operator void*() { return this; }
         bool valid() const { return (len_bytes % sizeof(T)) == 0; }
         size_t size() const { return len_bytes / sizeof(T); }
-        size_t max_size() const { return N; }
-        size_t size_bytes() const { return N * sizeof(T); }
+        static constexpr size_t max_size() { return N; }
+        static constexpr size_t size_bytes() { return N * sizeof(T); }
         std::span<const T> sv() const { return {data, N}; }
 
         template<class Me>
         auto& operator[](this Me const& t, size_t i) { return t.data[i]; }
 
         static constexpr Type TypeId() { return Type::OctetStr; }
+        static bool TypeValidator(uint8_t *value) 
+        {
+            return (*value <= size_bytes()) && (*value % sizeof(T) == 0); 
+        }
+    };
+
+    template<class T> requires (std::is_trivially_copyable_v<T>
+            && sizeof(T) <= 255)
+    struct [[gnu::packed]] ZigbeeBinTyped
+    {
+        uint8_t len_bytes;
+        T data;
+
+        constexpr ZigbeeBinTyped(T d = {}):
+            len_bytes{sizeof(T)}
+            , data{d}
+        {
+        }
+
+        operator void*() { return this; }
+
+        operator T&() { return data; }
+        operator const T&() const { return data; }
+
+        static constexpr Type TypeId() { return Type::OctetStr; }
+        static bool TypeValidator(uint8_t *value) 
+        {
+            return (*value == sizeof(T)) && ValidateCustomType((const T*)value);
+        }
     };
 
 

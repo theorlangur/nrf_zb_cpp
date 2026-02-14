@@ -36,6 +36,23 @@ namespace zb
         uint8_t u8;
     };
 
+    template<class T>
+    constexpr bool ValidateCustomType(const T *pValue)
+    {
+        if constexpr (requires { T::Validate((const T*)nullptr); })
+            return T::Validate(pValue);
+        else
+            return true;//default - ok
+    }
+
+    template<class T>
+    constexpr attr_validator_t ValidatorForType()
+    {
+        if constexpr (requires { T::TypeValidator((uint8_t*)nullptr); })
+            return &T::TypeValidator;
+        else
+            return {};
+    }
 
     template<class T, class MemType>
     using mem_attr_t = MemType T::*;
@@ -49,8 +66,10 @@ namespace zb
         zb_uint16_t id;
         Access a = Access::Read;
         Type type = TypeToTypeId<MemType>();
+        attr_validator_t validator = ValidatorForType<MemType>();
 
         constexpr inline bool has_access(Access _a) const { return a & _a; } 
+        constexpr inline bool has_validator() const { return validator != nullptr; }
         constexpr inline bool is_cvc() const { 
             if (a & Access::Report)
             {
@@ -416,8 +435,26 @@ namespace zb
         static_assert(attribute_tools::kAllUniqueIds<attributeMemberDesc...>, "All attribute ids must be unique!");
         static constexpr inline size_t count_members_with_access(Access a) { return ((size_t)attributeMemberDesc.has_access(a) + ... + 0); }
         static constexpr inline size_t count_cvc_members() { return ((size_t)attributeMemberDesc.is_cvc() + ... + 0); }
+        static constexpr inline size_t count_members_with_validators() { return ((size_t)attributeMemberDesc.has_validator() + ... + 0); }
+
         template<auto memPtr>
         static constexpr inline auto get_member_description() { return find_attribute_by_mem_ptr_t<memPtr, attributeMemberDesc...>::mem_desc(); }
+
+        static constexpr attr_validator_t find_attribute_validator(uint16_t id)
+        {
+            attr_validator_t res = {};
+            bool keep = false;
+            auto check = [&](auto attrMemDesc){
+                if (attrMemDesc.id == id)
+                {
+                    res = attrMemDesc.validator;
+                    return false;
+                }
+                return true;
+            };
+            (check(attributeMemberDesc) && ...);
+            return res;
+        }
 
         template<auto... attributeMemberDesc2>
         friend constexpr auto operator+(cluster_attributes_desc_t<attributeMemberDesc...> lhs, cluster_attributes_desc_t<attributeMemberDesc2...> rhs)
@@ -507,12 +544,14 @@ namespace zb
         static constexpr inline auto info() { return ci; }
         static constexpr inline size_t count_members_with_access(Access a) { return attributes.count_members_with_access(a); }
         static constexpr inline size_t count_cvc_members() { return attributes.count_cvc_members(); }
+        static constexpr inline size_t count_members_with_validators() { return attributes.count_members_with_validators(); }
         static constexpr inline auto max_command_pool_size() { return cmds.max_command_pool_size(); }
         static constexpr inline size_t count_generated() { return cmds.count_generated(); }
         static constexpr inline size_t count_received() { return cmds.count_received(); }
         static constexpr inline auto get_generated_commands() { return cmds.get_generated_commands(); }
         static constexpr inline auto get_received_commands() { return cmds.get_received_commands(); }
         static constexpr RawHandlerResult find_cmd_handler(uint8_t id, auto *pStruct) { return cmds.find_cmd_handler(id, pStruct); }
+        static constexpr attr_validator_t find_validator_for_attr(uint16_t id) { return attributes.find_attribute_validator(id); }
 
         template<auto memPtr>
         static constexpr inline auto get_member_description() { return attributes.template get_member_description<memPtr>(); }
@@ -611,6 +650,12 @@ namespace zb
     };
 
     template<class StructTag, uint8_t ep>
+    inline zb_ret_t on_cluster_check_value(zb_uint16_t attr_id, zb_uint8_t endpoint, zb_uint8_t *value)
+    {
+        return cluster_custom_handler_t<StructTag, ep>::on_validate(attr_id, value);
+    }
+
+    template<class StructTag, uint8_t ep>
     inline zb_bool_t on_cluster_cmd_handling(zb_uint8_t param)
     {
         if ( ZB_ZCL_GENERAL_GET_CMD_LISTS_PARAM == param )
@@ -661,6 +706,9 @@ namespace zb
         zb_zcl_cluster_handler_t cmd_handler = nullptr;
         if constexpr (d.count_received() > 0)
             cmd_handler = &on_cluster_cmd_handling<StructTag, ep>;
+
+        if constexpr (d.count_members_with_validators() > 0)
+            check_val = &on_cluster_check_value<StructTag, ep>;
 
         if (check_val || write_hook || cmd_handler)
         {

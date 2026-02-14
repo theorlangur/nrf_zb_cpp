@@ -72,6 +72,11 @@ namespace zb
             return Tag::find_cmd_handler(id, cluster_struct);
         }
 
+        attr_validator_t find_validator_for_attr(uint16_t id)
+        {
+            return Tag::find_validator_for_attr(id);
+        }
+
         constexpr operator zb_zcl_attr_t*() { return attributes; }
         constexpr operator zb_discover_cmd_list_t*() { return &cmd_list; }
 

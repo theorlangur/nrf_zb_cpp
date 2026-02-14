@@ -28,6 +28,8 @@ namespace zb
     template<class ClusterTag, uint8_t ep>
     void generic_cluster_init();
 
+    using attr_validator_t = bool(*)(uint8_t *value);
+
 #define DEFINE_ZBOSS_INIT_GETTER_FOR(ZCL_ID) static constexpr auto zboss_init_func(Role r) { return r == Role::Server ? ZCL_ID##_SERVER_ROLE_INIT : (r == Role::Client ? ZCL_ID##_CLIENT_ROLE_INIT : NULL); }
 
 

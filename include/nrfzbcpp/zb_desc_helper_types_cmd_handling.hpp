@@ -51,28 +51,14 @@ namespace zb
                 return raw_handler.h(pHdr, data, raw_handler.field);
             return {RET_OK, false};
         }
-    };
 
-    template<class DerivedHandler>
-    struct cluster_custom_handler_base_t
-    {
-        static zb_discover_cmd_list_t* get_cmd_list() 
-        { 
-            auto &dev_ctx = DerivedHandler::get_device();
-            return [&]<class StructTag, uint8_t ep>(cluster_custom_handler_t<StructTag, ep>*)->zb_discover_cmd_list_t*{
-                return dev_ctx.template ep_obj<ep>().template attribute_list<StructTag>();
-            }((DerivedHandler*)nullptr);
-        }
-
-        static CmdHandlingResult on_cmd(zb_zcl_parsed_hdr_t* pHdr, std::span<uint8_t> data)
+        static zb_ret_t on_validate(uint16_t attrId, uint8_t *data)
         {
-            auto &dev_ctx = DerivedHandler::get_device();
-            return [&]<class StructTag, uint8_t ep>(cluster_custom_handler_t<StructTag, ep>*)->CmdHandlingResult{
-                RawHandlerResult raw_handler = dev_ctx.template ep_obj<ep>().template attribute_list<StructTag>().find_handler_for_cmd(pHdr->cmd_id);
-                if (raw_handler.field)
-                    return raw_handler.h(pHdr, data, raw_handler.field);
-                return {RET_OK, false};
-            }((DerivedHandler*)nullptr);
+            auto &dev_ctx = internals::delay_tpl_call<global_device, ep>((global_device*)nullptr);
+            auto validator = dev_ctx.template ep_obj<ep>().template attribute_list<StructTag>().find_validator_for_attr(attrId);
+            if (validator)
+                return validator(data) ? RET_OK : RET_BUSY;
+            return RET_OK;
         }
     };
 }
