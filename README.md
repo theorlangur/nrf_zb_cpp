@@ -1,4 +1,4 @@
-# NRF ZBoss C++ wrappers
+# NRF ZBOSS C++ wrappers
 
 <!-- mtoc-start -->
 
@@ -407,7 +407,30 @@ This is typically the only thing needed to be implemented on user's side to be a
 callback of course).
 
 ### Typical signal handling
-TODO
+In general for a signal handling a `zboss_signal_handler` must be defined. It accepts `zb_bufid_t bufid` as an argument. And with a code snippet like:
+
+```cpp
+zb_zdo_app_signal_hdr_t *pHdr;
+auto signalId = zb_get_app_signal(bufid, &pHdr);
+```
+
+one can get the basic information no the signal.
+The alternative `zb::tpl_signal_handler` provided by this library is arguably a little bit type-safer.
+
+```cpp
+auto ret = zb::tpl_signal_handler<zb::sig_handlers_t{
+    .on_leave = ...,
+    .on_error = ...,
+    .on_dev_reboot = ...,
+    ...
+    .on_steering = ...,
+   }>(bufid);
+```
+User can define handlers for the signals that pose the interest. Handlers are defined by initializing
+corresponding fields in `zb::sig_handlers_t` and passing the `zb::sig_handlers_t` as a template argument to 
+`zb::tpl_signal_handler`. In other words handling must be completely defined at a compile time. If that's
+not possible you should resort to a default signal handling.
+The complete list of signal handlers can be found at `include/nrfzbcpp/zb_signals.hpp` (`struct sig_handlers_t`).
 
 ### Handling attribute writes
 Configuration of attribute writes handling is done at a compile time as template arguments to a base generic template device callback function
@@ -563,7 +586,41 @@ Many/all features of this library is built around templates and NTTP's.
  * `attribute_declaration_to_real_attribute_description`: given a reference to a cluster type `T` (actual C++ struct type to store attribute data in members)
    and an attribute declaration `zb::attribute_mem_desc_t` it returns a correspoinding `ADesc` with an actual pointer to attribute data.
 ### Clusters
-* `czcl_description_tluster_struct_desc_t`
+* `zb::cluster_info_t` is a structure for a basic cluster description, consists of following members:
+  - `zb_uint16_t id` (**`mandatory`**) - cluster ID according to Zigbee spec
+  - `zb_uint16_t rev` - cluster revision (default `0`)
+  - `Role role` - cluster role (typically `Role::Server` or `Role::Client`), default: `Role::Server`
+  - `zb_uint16_t manuf_code` - manufacturer code (default `ZB_ZCL_MANUF_CODE_INVALID`)
+* `cluster_struct_desc_t` is a main description structure type for a Zigbee cluster. It's also aliased as `cluster_t`.
+  It's template parameters are:
+    - `zb::cluster_info_t ci`
+    - `zb::cluster_attributes_desc_t attributes` (default `zb::cluster_attributes_desc_t</*empty attribute list*/>{}`)
+    - `zb::cluster_commands_desc_t cmds` (default `zb::cluster_commands_desc_t</*empty command list*/>{}`)
+  It has no own data members and it's purpose is to provide a compile-time template-friendly description of a cluster.
+  Following `static` `constexpr` member functions are available:
+    - `info` - a method to access `zb::cluster_info_t` template parameter
+    - `count_members_with_access` - call to `zb::cluster_attributes_desc_t::count_members_with_access()` 
+       returns the amount of attributes with a given access
+    - `count_cvc_members` - call to  `zb::cluster_attributes_desc_t::count_cvc_members()`
+       returns the amount of attributes potentially available for reporting tracking
+    - `max_command_pool_size` - call to `zb::cluster_commands_desc_t::max_command_pool_size()`
+       returns the maximum amount of commands may be 'in flight' at the same time
+    - `count_generated` - call to  `zb::cluster_commands_desc_t::count_generated()`
+       returns the amount of commands may be sent (generated) by the device
+    - `count_received` - call to  `zb::cluster_commands_desc_t::count_received()`
+       returns the amount of commands may be received by the device
+    - `get_generated_commands` - call to  `zb::cluster_commands_desc_t::get_generated_commands()`
+       returns the array with command IDs that may be sent (generated) by the device
+    - `get_received_commands` - call to  `zb::cluster_commands_desc_t::get_received_commands()`
+       returns the array with command IDs that may be received by the device
+    - `find_cmd_handler(cmdId, auto *pClusterStruct)` - call to `zb::cluster_commands_desc_t::find_cmd_handler()`
+       given a command ID to be received and a pointer to the actual `struct` representing the data of the cluster
+       it tries to find and return a pointer to a `cluster_in_cmd_desc_t` member variable of `pClusterStruct` and it's `raw_handler`
+    - `get_member_description<memPtr>` - return a `zb::attribute_mem_desc_t` given a pointer to a member variable (see [Attributes](#attributes))
+    - `get_cmd_description<memPtr>` - return a `zb::cluster_cmd_desc_t` given a pointer to a member variable (see [Commands subsystem](#commands-subsystem))
+    - `operator+` - a convenience way of adding attributes and commands from one cluster to another 
+       (e.g. cluster defining a base functionality may be extended by another cluster with the same ID defining more optional attributes.
+       see `zb_zcl_basic_names_t` vs `zb_zcl_basic_min_t`)
 * `zcl_description_t`
 * `cluster_struct_to_attr_list`
 * `TClusterList`
