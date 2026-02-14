@@ -504,7 +504,6 @@ namespace zb
     template<cluster_info_t ci, auto attributes = cluster_attributes_desc_t<>{}, auto cmds = cluster_commands_desc_t<>{}>//auto = cluster_attributes_desc_t
     struct cluster_struct_desc_t
     {
-        static constexpr inline zb_uint16_t rev() { return ci.rev; }
         static constexpr inline auto info() { return ci; }
         static constexpr inline size_t count_members_with_access(Access a) { return attributes.count_members_with_access(a); }
         static constexpr inline size_t count_cvc_members() { return attributes.count_cvc_members(); }

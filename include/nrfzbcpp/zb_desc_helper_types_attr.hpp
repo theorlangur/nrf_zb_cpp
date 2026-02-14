@@ -61,7 +61,7 @@ namespace zb
                 AttrDesc(d)...
                 , g_LastAttribute
             },
-            rev(Tag::rev()),
+            rev(Tag::info().rev),
             received_commands(Tag::get_received_commands()),
             generated_commands(Tag::get_generated_commands())
         {

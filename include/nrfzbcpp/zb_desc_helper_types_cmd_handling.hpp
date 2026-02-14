@@ -7,7 +7,6 @@
 namespace zb
 {
     struct global_device;
-    //auto get_global_device();
 
     namespace internals{
         template<class T, uint8_t dummy> requires requires { sizeof(T); }
