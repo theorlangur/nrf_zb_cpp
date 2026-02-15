@@ -119,7 +119,7 @@ namespace zb
         {
             static_assert(M <= N, "String literal is too big");
             data[0] = M - 1;
-            std::memcpy(data + 1, n, M - 1);
+            std::memcpy(data + 1, &n, M - 1);
             return *this;
         }
 
@@ -186,6 +186,7 @@ namespace zb
 
         operator void*() { return this; }
 
+        T* operator->() { return &data; }
         operator T&() { return data; }
         operator const T&() const { return data; }
 
