@@ -40,9 +40,10 @@ namespace zb
     template<class T>
     T const& get_typed_data(zb_zcl_set_attr_value_param_t *p)
     {
+
         //account for zigbee str
-        if constexpr (std::is_same_v<T, ZigbeeStrRef>)
-            return *(T*)p->values.data_variable;
+        if constexpr (requires { typename T::__1byte_var_len; })
+            return *(T*)(p->values.data_variable.p_data);
         else if constexpr (sizeof(T) == 1)
             return *(T*)&p->values.data8;
         else if constexpr (sizeof(T) == 2)
@@ -55,6 +56,8 @@ namespace zb
             return *(T*)&p->values.data48;
         else if constexpr (sizeof(T) == 8)
             return *(T*)&p->values.data_ieee;
+        else
+            static_assert(sizeof(T) == 0, "Unsupported type");
     }
 
     namespace internals
@@ -145,7 +148,7 @@ namespace zb
             return zb::set_attr_val_gen_desc_t{ep.template attribute_desc<kAttr>(), zb::to_handler_v<f>};
         else
         {
-            static_assert(std::is_convertible_v<fArg, MemType>, "Cannot convert attribute member type to set function 1st argument type");
+            static_assert(std::is_convertible_v<MemType, fArg>, "Cannot convert attribute member type to set function 1st argument type");
             return zb::set_attr_val_gen_desc_t{ep.template attribute_desc<kAttr>(), typed_set_attr_value_handler<f>::template handle<MemType>};
         }
     }

@@ -19,6 +19,7 @@ namespace zb
 
     struct ZigbeeStrRef
     {
+        using __1byte_var_len = void;
         char sz;
 
         operator void*() { return this; }
@@ -34,6 +35,7 @@ namespace zb
 
     struct ZigbeeOctetRef
     {
+        using __1byte_var_len = void;
         uint8_t sz;
 
         operator void*() { return this; }
@@ -50,6 +52,7 @@ namespace zb
     template<size_t N>
     struct ZigbeeStr
     {
+        using __1byte_var_len = void;
         char name[N];
 
         template<size_t M, size_t...idx>
@@ -91,6 +94,7 @@ namespace zb
     template<size_t N>
     struct ZigbeeBin
     {
+        using __1byte_var_len = void;
         uint8_t data[N];
 
         template<class T, size_t M, size_t...idx>
@@ -131,6 +135,7 @@ namespace zb
             && std::is_trivially_constructible_v<T>)
     struct [[gnu::packed]] ZigbeeBinTypedArray
     {
+        using __1byte_var_len = void;
         uint8_t len_bytes;
         T data[N];
 
@@ -175,6 +180,7 @@ namespace zb
             && sizeof(T) <= 255)
     struct [[gnu::packed]] ZigbeeBinTyped
     {
+        using __1byte_var_len = void;
         uint8_t len_bytes;
         T data;
 
