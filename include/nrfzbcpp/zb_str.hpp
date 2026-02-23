@@ -169,7 +169,7 @@ namespace zb
         template<class Me>
         auto& operator[](this Me const& t, size_t i) { return t.data[i]; }
 
-        static constexpr Type TypeId() { return Type::CharStr; }
+        static constexpr Type TypeId() { return Type::OctetStr; }
         static bool TypeValidator(uint8_t *value) 
         {
             return (*value <= size_bytes()) && (*value % sizeof(T) == 0); 
