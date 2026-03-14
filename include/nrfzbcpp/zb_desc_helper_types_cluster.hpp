@@ -648,10 +648,53 @@ namespace zb
 
         alignas(4) zb_zcl_cluster_desc_t clusters[N];
     };
+    
+    struct AdditionalClusterHandlers
+    {
+        uint8_t ep;
+        uint16_t cluster;
+        zb_zcl_cluster_check_value_t checker;
+        zb_zcl_cluster_handler_t cmd_handler;
+    };
+
+    struct ReservedArrayAdditionalClusterHandlers
+    {
+        constexpr static size_t kMaxEntries = 4;
+        uint8_t size = 0;
+        AdditionalClusterHandlers slots[kMaxEntries];
+
+        AdditionalClusterHandlers* add()
+        {
+            if (size < kMaxEntries)
+                return &slots[size++];
+            return nullptr;
+        }
+
+        AdditionalClusterHandlers* find(uint8_t ep, uint16_t cluster)
+        {
+            for(int i = 0; i < size; ++i)
+            {
+                if (slots[i].ep == ep && slots[i].cluster == cluster)
+                    return &slots[i];
+            }
+            return nullptr;
+        }
+    };
+
+    inline ReservedArrayAdditionalClusterHandlers g_AdditionalClusterHandlers;
 
     template<class StructTag, uint8_t ep>
     inline zb_ret_t on_cluster_check_value(zb_uint16_t attr_id, zb_uint8_t endpoint, zb_uint8_t *value)
     {
+        if (ep != endpoint)
+        {
+            constexpr auto i = zcl_description_t<StructTag>::get().info();
+            auto *pSlot = g_AdditionalClusterHandlers.find(endpoint, i.id);
+            if (!pSlot)
+                return RET_BUSY;
+            else
+                return pSlot->checker(attr_id, endpoint, value);
+        }
         return cluster_custom_handler_t<StructTag, ep>::on_validate(attr_id, value);
     }
 
@@ -664,11 +707,21 @@ namespace zb
             return ZB_TRUE;
         }
 
-        //zb_bool_t processed = ZB_TRUE;
-        //zb_ret_t status = RET_OK;
         zb_zcl_parsed_hdr_t *cmd_info = ZB_BUF_GET_PARAM(param, zb_zcl_parsed_hdr_t);
+        CmdHandlingResult r;
+        if (cmd_info->addr_data.common_data.dst_endpoint != ep)
+        {
+            auto *pSlot = g_AdditionalClusterHandlers.find(cmd_info->addr_data.common_data.dst_endpoint, cmd_info->cluster_id);
+            if (!pSlot)
+            {
+                r.status = RET_NOT_FOUND;
+                r.processed = true;
+            }else
+                return pSlot->cmd_handler(param);
+        }else
+            r = cluster_custom_handler_t<StructTag, ep>::on_cmd(cmd_info, std::span<uint8_t>{(uint8_t*)zb_buf_begin(param), zb_buf_len(param)});
 
-        auto [status, processed] = cluster_custom_handler_t<StructTag, ep>::on_cmd(cmd_info, std::span<uint8_t>{(uint8_t*)zb_buf_begin(param), zb_buf_len(param)});
+        auto const& [status, processed] = r;
 
         if( processed )
         {
@@ -713,11 +766,19 @@ namespace zb
         if (check_val || write_hook || cmd_handler)
         {
             constexpr auto i = d.info();
-            zb_zcl_add_cluster_handlers(i.id, (uint8_t)i.role
+            zb_ret_t ret = zb_zcl_add_cluster_handlers(i.id, (uint8_t)i.role
                     , check_val /*cluster_check_value*/
                     , write_hook /*cluster_write_attr_hook*/
                     , cmd_handler /*cluster_handler*/
                     );
+            if (ret == RET_ALREADY_EXISTS)
+            {
+                auto *pSlot = g_AdditionalClusterHandlers.add();
+                pSlot->ep = ep;
+                pSlot->cluster = i.id;
+                pSlot->checker = check_val;
+                pSlot->cmd_handler = cmd_handler;
+            }
         }
     }
 }
