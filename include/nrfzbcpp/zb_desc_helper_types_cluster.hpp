@@ -342,9 +342,13 @@ namespace zb
                 return;
             }
 
-            if (pArgs->canceled)
-                return;
             RequestPtr raii(pArgs);
+            if (pArgs->canceled)
+            {
+                if (bufid != ZB_BUF_INVALID)
+                    zb_buf_free(bufid);
+                return;
+            }
 
             if (bufid == ZB_BUF_INVALID)
             {
