@@ -311,7 +311,6 @@ namespace zb
                     /*timeout_ms*/kTimeout
             );
             if (!r) return std::nullopt;
-            raii.release();
             //if the size of the Queue is 1 it means this command is the only there
             //we need to send it right away
 #if defined(DBG_CMD)
@@ -320,6 +319,7 @@ namespace zb
             if (*r == 1) 
                 if (!send_next_cmd(false))
                     return std::nullopt;
+            raii.release();
             return g_cmd_num++;
         }
 
@@ -344,12 +344,12 @@ namespace zb
                     /*timeout_ms*/kTimeout
             );
             if (!r) return std::nullopt;
-            raii.release();
             //if the size of the Queue is 1 it means this command is the only there
             //we need to send it right away
             if (*r == 1)
                 if (!send_next_cmd(false))
                     return std::nullopt;
+            raii.release();
             return g_cmd_num++;
         }
 
@@ -374,12 +374,12 @@ namespace zb
                     /*timeout_ms*/kTimeout
             );
             if (!r) return std::nullopt;
-            raii.release();
             //if the size of the Queue is 1 it means this command is the only there
             //we need to send it right away
             if (*r == 1)
                 if (!send_next_cmd(false))
                     return std::nullopt;
+            raii.release();
             return g_cmd_num++;
         }
 
@@ -404,12 +404,12 @@ namespace zb
                     /*timeout_ms*/kTimeout
             );
             if (!r) return std::nullopt;
-            raii.release();
             //if the size of the Queue is 1 it means this command is the only there
             //we need to send it right away
             if (*r == 1)
                 if (!send_next_cmd(false))
                     return std::nullopt;
+            raii.release();
             return g_cmd_num++;
         }
 
@@ -434,12 +434,12 @@ namespace zb
                     /*timeout_ms*/kTimeout
             );
             if (!r) return std::nullopt;
-            raii.release();
             //if the size of the Queue is 1 it means this command is the only there
             //we need to send it right away
             if (*r == 1)
                 if (!send_next_cmd(false))
                     return std::nullopt;
+            raii.release();
             return g_cmd_num++;
         }
 
