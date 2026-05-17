@@ -199,7 +199,7 @@ namespace zb
         static constexpr Type TypeId() { return Type::OctetStr; }
         static bool TypeValidator(uint8_t *value) 
         {
-            return (*value == sizeof(T)) && ValidateCustomType((const T*)value);
+            return (*value == sizeof(T)) && ValidateCustomType((const T*)(value + 1));
         }
     };
 
