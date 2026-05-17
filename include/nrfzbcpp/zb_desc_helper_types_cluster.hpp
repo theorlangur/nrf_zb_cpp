@@ -298,7 +298,7 @@ namespace zb
         }
 
         template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-        static void prepare_args(zb_callback_t cb, zb_ieee_addr_t ieee_addr, uint8_t ep, TArgs&&... args)
+        static args_ret_t prepare_args(zb_callback_t cb, zb_ieee_addr_t ieee_addr, uint8_t ep, TArgs&&... args)
         {
             auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, ieee_addr, ep, AddrMode::Dst64EP, std::forward<Args>(args)...)); 
             return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
