@@ -254,12 +254,12 @@ namespace zb
             static_assert(((handlers.handler != nullptr) && ...), "Invalid handler detected");
             [[maybe_unused]]bool r = 
                 ((handlers.fits(ep, cluster_id, attr_id) ? handlers.handler(ep, cluster_id, attr_id), true : true), ...);
+        }
 
-            for(auto *pN : NoReportHandlingNode::g_List)
-            {
-                if (pN->h.fits(ep, cluster_id, attr_id))
-                    pN->h.handler(ep, cluster_id, attr_id);
-            }
+        for(auto *pN : NoReportHandlingNode::g_List)
+        {
+            if (pN->h.fits(ep, cluster_id, attr_id))
+                pN->h.handler(ep, cluster_id, attr_id);
         }
     }
 
@@ -398,12 +398,12 @@ namespace zb
             static_assert(((handlers.handler != nullptr) && ...), "Invalid handler detected");
             [[maybe_unused]]bool r = 
                 ((handlers.fits(ep, cluster_id, attr_id) ? handlers.handler(addr, ep, cluster_id, attr_id, attr_type, value), true : true), ...);
+        }
 
-            for(auto *pN : ReportHandlingNode::g_List)
-            {
-                if (pN->h.fits(ep, cluster_id, attr_id))
-                    pN->h.handler(addr, ep, cluster_id, attr_id, attr_type, value);
-            }
+        for(auto *pN : ReportHandlingNode::g_List)
+        {
+            if (pN->h.fits(ep, cluster_id, attr_id))
+                pN->h.handler(addr, ep, cluster_id, attr_id, attr_type, value);
         }
     }
 }
