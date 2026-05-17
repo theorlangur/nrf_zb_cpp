@@ -385,6 +385,29 @@ namespace zb
     template<zb_uint8_t cmd_id, uint8_t pool_size, class... Args>
     struct cluster_std_cmd_desc_with_pool_size_t: cluster_cmd_desc_t<{.cmd_id = cmd_id, .pool_size = pool_size ? pool_size : cmd_cfg_t{}.pool_size}, Args...> {};
 
+    struct cmd_to_arg
+    {
+        const uint8_t *pData;
+        template<class A> requires (alignof(A) == 1)
+        const A& operator()(A *pDummy)
+        {
+            const A *p = (const A*)pData;
+            pData += sizeof(A);
+            return *p;
+        }
+
+        template<class A> requires (alignof(A) != 1)
+        A operator()(A *pDummy)
+        {
+            static_assert(sizeof(A) <= 4, "Type is too big");
+            const A *p = (const A*)pData;
+            pData += sizeof(A);
+            A ret;
+            memcpy(&ret, p, sizeof(A));
+            return ret;
+        }
+    };
+
     template<zb_uint8_t cmd_id, class... Args>
     struct cluster_in_cmd_desc_t: cluster_cmd_desc_t<{.cmd_id = cmd_id, .pool_size = 0, .receive = true}, Args...> {
         using this_type = cluster_in_cmd_desc_t<cmd_id, Args...>;
@@ -399,12 +422,7 @@ namespace zb
             if (data.size() < kArgRawSize) return {RET_ILLEGAL_REQUEST, true};
 
             const uint8_t *pData = data.data();
-            auto to_arg = [&]<class A>(A *pDummy)->A const&
-            {
-                const A *p = (const A*)pData;
-                pData += sizeof(A);
-                return *p;
-            };
+            cmd_to_arg to_arg{pData};
             return pThis->cb(to_arg((Args*)nullptr)...);
         }
     };
