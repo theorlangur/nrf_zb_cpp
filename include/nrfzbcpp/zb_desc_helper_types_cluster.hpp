@@ -764,6 +764,9 @@ namespace zb
         return processed;
     }
 
+    using global_error_handler_t = void(*)(zb_ret_t r);
+    inline global_error_handler_t g_GlobalErrorHandler = nullptr;
+
     template<class StructTag, uint8_t ep>
     void generic_cluster_init()
     {
@@ -796,10 +799,16 @@ namespace zb
             if (ret == RET_ALREADY_EXISTS)
             {
                 auto *pSlot = g_AdditionalClusterHandlers.add();
-                pSlot->ep = ep;
-                pSlot->cluster = i.id;
-                pSlot->checker = check_val;
-                pSlot->cmd_handler = cmd_handler;
+                if (pSlot)
+                {
+                    pSlot->ep = ep;
+                    pSlot->cluster = i.id;
+                    pSlot->checker = check_val;
+                    pSlot->cmd_handler = cmd_handler;
+                }else if (g_GlobalErrorHandler)
+                {
+                    g_GlobalErrorHandler(RET_NO_MEMORY);
+                }
             }
         }
     }
