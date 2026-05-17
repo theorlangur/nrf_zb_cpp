@@ -73,8 +73,9 @@ namespace zb
         }
 
         operator void*() { return name; }
-        size_t size() const { return N - 1; }
-        std::string_view sv() const { return {name + 1, N - 1}; }
+        size_t capacity() const { return N - 1; }
+        size_t size() const { return *name; }
+        std::string_view sv() const { return {name + 1, size()}; }
         ZigbeeStrView zsv() const { return {name}; }
         ZigbeeStrRef& zsv_ref() { return *(ZigbeeStrRef*)name; }
 
