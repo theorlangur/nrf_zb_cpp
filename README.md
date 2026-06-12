@@ -590,7 +590,7 @@ Many/all features of this library is built around templates and NTTP's.
 #### Attributes for custom structs
 The library provides wrapper types to use non-standard C++ types as Zigbee attributes. These serialize/deserialize as Zigbee Octet Strings (variable-length binary blobs).
 
-**`zb::ZigbeeBinTyped<T>`** — Wraps an arbitrary trivially-copyable type `T` as a binary attribute (`sizeof(T) <= 255`). Wire layout is `[length byte][T as raw bytes]`. Implicit conversions to `T&` and `const T&` allow transparent usage:
+`zb::ZigbeeBinTyped<T>` — Wraps an arbitrary trivially-copyable type `T` as a binary attribute (`sizeof(T) <= 255`). Wire layout is `[length byte][T as raw bytes]`. Implicit conversions to `T&` and `const T&` allow transparent usage:
 
 ```cpp
 struct sensor_cfg_t {
@@ -689,43 +689,43 @@ attribute_t{.m = &T::foo, .id = 0x0002, .a = Access::RW, .validator = &T::custom
 ### End Points
 Endpoints are the core organizational unit in Zigbee, represented by `EPDesc` and `EPDescSelfContained`.
 
-**`EPBaseInfo`** — Metadata for an endpoint:
+`EPBaseInfo` — Metadata for an endpoint:
 - `ep` — endpoint number (1-255)
 - `dev_id` — device ID for simple descriptor
 - `dev_ver` — device version
 - `cmd_queue_depth` — 0 = auto-infer from cluster command pool sizes
 
-**`EPDesc<EPBaseInfo i, Clusters>** — The primary endpoint description class templated on base info and a `TClusterList`. Key features:
+`EPDesc<EPBaseInfo i, Clusters>` — The primary endpoint description class templated on base info and a `TClusterList`. Key features:
 - Computes `kCmdQueueSize = max_command_pool_size()` or uses `cmd_queue_depth` if explicitly set.
 - Stores runtime ZBOSS structures: `zb_af_endpoint_desc_t ep`, simple descriptor, reporting arrays (`rep_ctx[]`), CVC alarm context (`cvc_alarm_ctx[]`).
-- **Attribute access**: `attr<memPtr>()` and `attr_checked<memPtr>()` perform type-safe assignment to ZBOSS attributes.
-- **Attribute descriptors**: `attribute_desc<memPtr>()` returns a `EPClusterAttributeDesc_t` for use in device callbacks (set_attr handling).
-- **Command sending**: multiple overloads of `send_cmd()` — direct, to short address, long address, group, or bind-table target. Returns `std::optional<cmd_id_t>` (command pool index or `nullopt` if queue full).
+- Attribute access: `attr<memPtr>()` and `attr_checked<memPtr>()` perform type-safe assignment to ZBOSS attributes.
+- Attribute descriptors: `attribute_desc<memPtr>()` returns a `EPClusterAttributeDesc_t` for use in device callbacks (set_attr handling).
+- Command sending: multiple overloads of `send_cmd()` — direct, to short address, long address, group, or bind-table target. Returns `std::optional<cmd_id_t>` (command pool index or `nullopt` if queue full).
 - Static members: `g_CmdQueue`, `g_CmdTimeoutTracker`, `g_cmd_num` for endpoint-level command pooling.
 
-**`EPDescSelfContained<EPBaseInfo i, ClusterTypes...>** — Alternative variant that also stores the actual cluster data structs alongside attribute descriptors. Provides `.attribute_list<StructTag>()` to retrieve a specific cluster's attribute list at runtime.
+`EPDescSelfContained<EPBaseInfo i, ClusterTypes...>` — Alternative variant that also stores the actual cluster data structs alongside attribute descriptors. Provides `.attribute_list<StructTag>()` to retrieve a specific cluster's attribute list at runtime.
 
-**Address mode types**: `ShortAddr`, `LongAddr`, `GroupAddr`, `BindIdAddr` helper structs for specifying command destinations. Factory functions: `to_short()`, `to_long()`, `to_group()`, `to_bind_id()`.
+Address mode types: `ShortAddr`, `LongAddr`, `GroupAddr`, `BindIdAddr` helper structs for specifying command destinations. Factory functions: `to_short()`, `to_long()`, `to_group()`, `to_bind_id()`.
 
 ### Commands subsystem
 Commands are managed through a pool-based dispatch system on the endpoint level.
 
-**`cluster_cmd_desc_t<cfg, Args...>`** — The core command type template (in `zb_desc_helper_types_cluster.hpp`). Key properties:
+`cluster_cmd_desc_t<cfg, Args...>` — The core command type template (in `zb_desc_helper_types_cluster.hpp`). Key properties:
 - Template parameter `cfg` (`cmd_cfg_t`) specifies `cmd_id`, `pool_size`, and `receive` flag.
 - Holds a static `ObjectPool<runtime_args_t, pool_size>` (`g_Pool`) to buffer command arguments, preventing concurrent-send conflicts in ZBOSS.
 - **Sent commands**: use `prepare_args(cb, args...)` to pack arguments for sending. Returns an argument pool index (`uint16_t`). Then call `request(i, payload)` or `cancel(i)`. Static callbacks fire on completion/timeout/cancel. The sender type aliases:
   - `cmd_generic_t<{.cmd_id=..., .pool_size=...}, Args...>` — fully configurable command with optional callback.
   - `cmd_pool_t<id, pool_size, Args...>` — convenience alias for sent commands (default pool_size=1).
 
-**`cluster_in_cmd_desc_t` / `cmd_in_t<id, Args...>`** — Inbound (received) command type. Parameters: `pool_size=0, receive=true`. Carries a user-settable callback of type `CmdHandlingResult(*)(Args const&...)` stored as `.cb`. Wire bytes are unpacked via `cmd_to_arg` (handles alignment). The `raw_handler` static method dispatches to the registered callback when invoked by ZBOSS.
+`cluster_in_cmd_desc_t` / `cmd_in_t<id, Args...>` — Inbound (received) command type. Parameters: `pool_size=0, receive=true`. Carries a user-settable callback of type `CmdHandlingResult(*)(Args const&...)` stored as `.cb`. Wire bytes are unpacked via `cmd_to_arg` (handles alignment). The `raw_handler` static method dispatches to the registered callback when invoked by ZBOSS.
 
-**`CmdHandlingResult`** — Return type for inbound command handlers:
+`CmdHandlingResult` — Return type for inbound command handlers:
 - `status`: `RET_OK` sends a success response; `RET_BUSY` suppresses default handling.
 - `processed`: `true` skips further/default response processing; `false` lets ZBOSS continue.
 
-**Inbound dispatch chain**: When ZBOSS receives a command, it invokes `cluster_custom_handler_t<StructTag>::on_cmd()`, which calls `attribute_list.find_handler_for_cmd(cmdId)` to find the `raw_handler` and field pointer, then forwards the call with parsed wire data. The handler (if `.cb != nullptr`) is invoked with unpacked typed arguments.
+Inbound dispatch chain: When ZBOSS receives a command, it invokes `cluster_custom_handler_t<StructTag>::on_cmd()`, which calls `attribute_list.find_handler_for_cmd(cmdId)` to find the `raw_handler` and field pointer, then forwards the call with parsed wire data. The handler (if `.cb != nullptr`) is invoked with unpacked typed arguments.
 
-**`cluster_commands_desc_t** — Compile-time registry of command member pointers in a cluster. Exposes: `count_generated()`, `count_received()`, `find_cmd_handler(id, pStruct)`, `get_generated/received_commands()`. Wired into clusters via `commands_t` NTTP in `cluster_struct_desc_t`.
+`cluster_commands_desc_t` — Compile-time registry of command member pointers in a cluster. Exposes: `count_generated()`, `count_received()`, `find_cmd_handler(id, pStruct)`, `get_generated/received_commands()`. Wired into clusters via `commands_t` NTTP in `cluster_struct_desc_t`.
 
 ## Known issues with compilers
 The code compiles fine with `clang++-19`, `clang++-20` with `-std=c++23` option enabled.
