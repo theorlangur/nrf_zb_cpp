@@ -79,7 +79,7 @@ static constinit device_ctx_t dev_ctx{
 //Here we're making the actual Zigbee device with properly initialized structures
 //All necessary cluster/attribute information is auto-deduced from the types of cluster member variables of dev_ctx
 constinit static auto zb_ctx = zb::make_device(
-	zb::make_ep_args<{.ep=kEP, .dev_id=kDEV_ID, .dev_ver=1}>(
+	zb::make_ep_args<{.ep=kDEV_EP, .dev_id=kDEV_ID, .dev_ver=1}>(
 	    dev_ctx.basic_attr
 	    , dev_ctx.battery_attr
 	    , dev_ctx.poll_ctrl
@@ -88,7 +88,7 @@ constinit static auto zb_ctx = zb::make_device(
 	);
 
 //for convenient access to some typical operations later
-constinit static auto &zb_ep = zb_ctx.ep<kEP>();
+constinit static auto &zb_ep = zb_ctx.ep<kDEV_EP>();
 
 //some temperature sensor somewhere
 static const struct device *const temp_dev = DEVICE_DT_GET(DT_NODELABEL(temp_sensor));
@@ -513,7 +513,7 @@ void func6(T, zb_zcl_device_callback_param_t *pDevCBParam);
 void func7(T, zb_zcl_device_callback_param_t *pDevCBParam, zb_zcl_set_attr_value_param_t *p);
 ```
 
-`func1-3` are the same as `func5-6` the only difference is reference vs copy of the T.
+`func1-3` are the same as `func5-7`; the only difference is reference vs copy of T.
 `func4` doesn't accept any parameters and is for pure notificational purposes.
 
 Example:
@@ -606,9 +606,9 @@ struct my_cluster_t {
 attribute_t{.m = &T::config, .id = 0x0001, .a = Access::RW}
 ```
 
-**`zb::ZigbeeStr<N>`** — Fixed-length string with a length byte prefix (use `zb::ZbStr()` factory). **`zb::ZigbeeBinTypedArray<T, N>`** — Array of `T` with length prefix.
+`zb::ZigbeeStr<N>` — Fixed-length string with a length byte prefix (`TypeId()` = `Type::CharStr`, use `zb::ZbStr()` factory). `zb::ZigbeeBinTypedArray<T, N>` — Array of `T` with length prefix. `zb::ZigbeeOctetBuf<N>` — raw N-byte octet string (`TypeId()` = `Type::OctetStr`). `zb::ZigbeeBin<N>` — alternative binary wrapper with data-as-payload layout.
 
-All wrapper types report Zigbee type ID `Type::OctetStr` and define a static `TypeValidator(uint8_t*)` method. This validator is automatically wired to `validator` field on attributes whose member type is one of these wrappers (see [Attribute validation](#attribute-validation) below).
+All custom-type wrappers are documented in the [Custom struct section](#attributes-for-custom-structs) above, and define `static Type TypeId()` and `static bool TypeValidator(uint8_t*)` methods that are automatically wired to the `validator` field of attributes whose member type is one of them.
 
 #### Attribute validation
 The `zb::attribute_mem_desc_t` struct has a `validator` field (`attr_validator_t`, a `bool(*)(uint8_t *value)` function pointer). If non-null, this function is called by ZBOSS before writing the attribute value. The validator receives a raw byte pointer to the incoming wire-format data and returns `true` if the value is accepted.
