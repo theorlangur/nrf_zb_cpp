@@ -26,8 +26,8 @@ namespace zb
             return cluster_t<
                 {.id = kZB_ZCL_CLUSTER_ID_POWER_CFG},
                 attributes_t<
-                    attribute_t{.m = &T::mains_voltage,.id = 0x0000, .a=Access::Read}
-                    ,attribute_t{.m = &T::mains_freq,.id = 0x0001, .a=Access::Read}
+                    attribute_t{.m = &T::mains_voltage,.id = 0x0000, .a=access_t::Read}
+                    ,attribute_t{.m = &T::mains_freq,.id = 0x0001, .a=access_t::Read}
                 >{}
             >{};
         }
@@ -35,7 +35,7 @@ namespace zb
 
     struct zb_mains_alarm_mask_t
     {
-        static constexpr Type TypeId() { return Type::Map8; }
+        static constexpr type_t TypeId() { return type_t::Map8; }
 
         uint8_t voltage_low  : 1 = 0;
         uint8_t voltage_high : 1 = 0;
@@ -58,10 +58,10 @@ namespace zb
             return zcl_description_t<zb_zcl_power_cfg_mains_info_t>::get() + cluster_t<
                 {.id = kZB_ZCL_CLUSTER_ID_POWER_CFG},
                 attributes_t<
-                     attribute_t{.m = &T::mains_alarm_mask,              .id = 0x0010, .a=Access::RW}
-                    ,attribute_t{.m = &T::mains_voltage_min_threshold,   .id = 0x0011, .a=Access::RW}
-                    ,attribute_t{.m = &T::mains_voltage_max_threshold,   .id = 0x0012, .a=Access::RW}
-                    ,attribute_t{.m = &T::mains_voltage_dwell_trip_point,.id = 0x0013, .a=Access::RW}
+                     attribute_t{.m = &T::mains_alarm_mask,              .id = 0x0010, .a=access_t::RW}
+                    ,attribute_t{.m = &T::mains_voltage_min_threshold,   .id = 0x0011, .a=access_t::RW}
+                    ,attribute_t{.m = &T::mains_voltage_max_threshold,   .id = 0x0012, .a=access_t::RW}
+                    ,attribute_t{.m = &T::mains_voltage_dwell_trip_point,.id = 0x0013, .a=access_t::RW}
                 >{}
             >{};
         }
@@ -81,14 +81,14 @@ namespace zb
             return cluster_t<
                 {.id = kZB_ZCL_CLUSTER_ID_POWER_CFG},
                 attributes_t<
-                    attribute_t{.m = &T::batt_voltage,              .id = 0x0020, .a=Access::RP}
-                    ,attribute_t{.m = &T::batt_percentage_remaining,.id = 0x0021, .a=Access::RP}
+                    attribute_t{.m = &T::batt_voltage,              .id = 0x0020, .a=access_t::RP}
+                    ,attribute_t{.m = &T::batt_percentage_remaining,.id = 0x0021, .a=access_t::RP}
                 >{}
             >{};
         }
     };
 
-    enum class BatterySize: uint8_t
+    enum class battery_size_t: uint8_t
     {
         NoBattery = 0,
         BuiltIn = 1,
@@ -104,7 +104,7 @@ namespace zb
 
     struct zb_battery_alarm_mask_t
     {
-        static constexpr Type TypeId() { return Type::Map8; }
+        static constexpr type_t TypeId() { return type_t::Map8; }
 
         uint8_t low    : 1;
         uint8_t alarm1 : 1;
@@ -114,7 +114,7 @@ namespace zb
 
     struct zb_battery_alarm_state_t
     {
-        static constexpr Type TypeId() { return Type::Map32; }
+        static constexpr type_t TypeId() { return type_t::Map32; }
 
         uint32_t low_src1    : 1;
         uint32_t alarm1_src1 : 1;
@@ -136,8 +136,8 @@ namespace zb
 
     struct zb_zcl_power_cfg_battery_settings_t: zb_zcl_power_cfg_battery_info_t
     {
-        ZigbeeStr<16> batt_manufacture;
-        BatterySize batt_size;
+        zigbee_str_t<16> batt_manufacture;
+        battery_size_t batt_size;
         uint16_t batt_AHr_rating;
         uint8_t batt_quantity;
         uint8_t batt_rated_voltage;
@@ -161,21 +161,21 @@ namespace zb
             return zcl_description_t<zb_zcl_power_cfg_battery_info_t>::get() + cluster_t<
                 {.id = kZB_ZCL_CLUSTER_ID_POWER_CFG},
                 attributes_t<
-                     attribute_t{.m = &T::batt_manufacture,              .id = 0x0030, .a=Access::RW}
-                    ,attribute_t{.m = &T::batt_size,                     .id = 0x0031, .a=Access::RW}
-                    ,attribute_t{.m = &T::batt_AHr_rating,               .id = 0x0032, .a=Access::RW}
-                    ,attribute_t{.m = &T::batt_quantity,                 .id = 0x0033, .a=Access::RW}
-                    ,attribute_t{.m = &T::batt_rated_voltage,            .id = 0x0034, .a=Access::RW}
-                    ,attribute_t{.m = &T::batt_alarm_mask,               .id = 0x0035, .a=Access::RW}
-                    ,attribute_t{.m = &T::batt_voltage_min_threshold,    .id = 0x0036, .a=Access::RW}
-                    ,attribute_t{.m = &T::batt_voltage_threshold1,       .id = 0x0037, .a=Access::RW}
-                    ,attribute_t{.m = &T::batt_voltage_threshold2,       .id = 0x0038, .a=Access::RW}
-                    ,attribute_t{.m = &T::batt_voltage_threshold3,       .id = 0x0039, .a=Access::RW}
-                    ,attribute_t{.m = &T::batt_percentage_min_threshold, .id = 0x003a, .a=Access::RW}
-                    ,attribute_t{.m = &T::batt_percentage_threshold1,    .id = 0x003b, .a=Access::RW}
-                    ,attribute_t{.m = &T::batt_percentage_threshold2,    .id = 0x003c, .a=Access::RW}
-                    ,attribute_t{.m = &T::batt_percentage_threshold3,    .id = 0x003d, .a=Access::RW}
-                    ,attribute_t{.m = &T::batt_alarm_state,              .id = 0x003e, .a=Access::RW}
+                     attribute_t{.m = &T::batt_manufacture,              .id = 0x0030, .a=access_t::RW}
+                    ,attribute_t{.m = &T::batt_size,                     .id = 0x0031, .a=access_t::RW}
+                    ,attribute_t{.m = &T::batt_AHr_rating,               .id = 0x0032, .a=access_t::RW}
+                    ,attribute_t{.m = &T::batt_quantity,                 .id = 0x0033, .a=access_t::RW}
+                    ,attribute_t{.m = &T::batt_rated_voltage,            .id = 0x0034, .a=access_t::RW}
+                    ,attribute_t{.m = &T::batt_alarm_mask,               .id = 0x0035, .a=access_t::RW}
+                    ,attribute_t{.m = &T::batt_voltage_min_threshold,    .id = 0x0036, .a=access_t::RW}
+                    ,attribute_t{.m = &T::batt_voltage_threshold1,       .id = 0x0037, .a=access_t::RW}
+                    ,attribute_t{.m = &T::batt_voltage_threshold2,       .id = 0x0038, .a=access_t::RW}
+                    ,attribute_t{.m = &T::batt_voltage_threshold3,       .id = 0x0039, .a=access_t::RW}
+                    ,attribute_t{.m = &T::batt_percentage_min_threshold, .id = 0x003a, .a=access_t::RW}
+                    ,attribute_t{.m = &T::batt_percentage_threshold1,    .id = 0x003b, .a=access_t::RW}
+                    ,attribute_t{.m = &T::batt_percentage_threshold2,    .id = 0x003c, .a=access_t::RW}
+                    ,attribute_t{.m = &T::batt_percentage_threshold3,    .id = 0x003d, .a=access_t::RW}
+                    ,attribute_t{.m = &T::batt_alarm_state,              .id = 0x003e, .a=access_t::RW}
                 >{}
             >{};
         }

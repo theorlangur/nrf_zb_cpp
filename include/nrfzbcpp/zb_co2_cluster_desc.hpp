@@ -25,7 +25,7 @@ namespace zb
             return cluster_t<
             {.id = kZB_ZCL_CLUSTER_ID_CO2},
                 attributes_t<
-                    attribute_t{.m = &T::measured_value,.id = 0x0000, .a=Access::RP}
+                    attribute_t{.m = &T::measured_value,.id = 0x0000, .a=access_t::RP}
             >{}
             >{};
         }

@@ -26,9 +26,9 @@ namespace zb
             return cluster_t<
                 cluster_info_t{.id = kZB_ZCL_CLUSTER_ID_STATUS},
                 attributes_t<
-                    attribute_t{.m = &T::status1,.id = 0x0000, .a=Access::RP},
-                    attribute_t{.m = &T::status2,.id = 0x0001, .a=Access::RP},
-                    attribute_t{.m = &T::status3,.id = 0x0002, .a=Access::RP}
+                    attribute_t{.m = &T::status1,.id = 0x0000, .a=access_t::RP},
+                    attribute_t{.m = &T::status2,.id = 0x0001, .a=access_t::RP},
+                    attribute_t{.m = &T::status3,.id = 0x0002, .a=access_t::RP}
                 >{}
             >{};
         }

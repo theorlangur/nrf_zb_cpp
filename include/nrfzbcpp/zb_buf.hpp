@@ -5,7 +5,7 @@
 
 namespace zb
 {
-    struct BufPtrBase
+    struct buf_ptr_base_t
     {
         zb_bufid_t release()
         {
@@ -27,9 +27,9 @@ namespace zb
         zb_bufid_t bufid = 0;
     };
 
-    struct BufPtr: BufPtrBase
+    struct buf_ptr_t: buf_ptr_base_t
     {
-        ~BufPtr() { reset(); }
+        ~buf_ptr_t() { reset(); }
 
         void reset(zb_bufid_t b = 0)
         {
@@ -38,9 +38,10 @@ namespace zb
         }
     };
 
-    struct BufViewPtr: BufPtrBase
+    struct buf_view_ptr_t: buf_ptr_base_t
     {
     };
+
 }
 #endif
 

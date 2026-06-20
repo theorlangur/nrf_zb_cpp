@@ -21,14 +21,14 @@ namespace zb
         }
     }
 
-    struct CmdHandlingResult
+    struct cmd_handling_result_t
     {
         zb_ret_t status = RET_OK;
         bool processed = true;
     };
-    using cmd_field_raw_handler_t = CmdHandlingResult (*)(zb_zcl_parsed_hdr_t* pHdr, std::span<uint8_t> data, void *pField);
+    using cmd_field_raw_handler_t = cmd_handling_result_t (*)(zb_zcl_parsed_hdr_t* pHdr, std::span<uint8_t> data, void *pField);
 
-    struct RawHandlerResult
+    struct raw_handler_result_t
     {
         cmd_field_raw_handler_t h = nullptr;
         void *field = nullptr;
@@ -43,10 +43,10 @@ namespace zb
             return dev_ctx.template ep_obj<ep>().template attribute_list<StructTag>();
         }
 
-        static CmdHandlingResult on_cmd(zb_zcl_parsed_hdr_t* pHdr, std::span<uint8_t> data)
+        static cmd_handling_result_t on_cmd(zb_zcl_parsed_hdr_t* pHdr, std::span<uint8_t> data)
         {
             auto &dev_ctx = internals::delay_tpl_call<global_device, ep>((global_device*)nullptr);
-            RawHandlerResult raw_handler = dev_ctx.template ep_obj<ep>().template attribute_list<StructTag>().find_handler_for_cmd(pHdr->cmd_id);
+            raw_handler_result_t raw_handler = dev_ctx.template ep_obj<ep>().template attribute_list<StructTag>().find_handler_for_cmd(pHdr->cmd_id);
             if (raw_handler.field)
                 return raw_handler.h(pHdr, data, raw_handler.field);
             return {RET_OK, false};

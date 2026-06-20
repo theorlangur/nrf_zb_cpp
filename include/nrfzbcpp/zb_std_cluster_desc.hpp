@@ -60,8 +60,8 @@ template<> struct zcl_description_t<zb_zcl_basic_min_t> {
 
 struct zb_zcl_basic_names_t: zb_zcl_basic_min_t
 {
-    ZigbeeStr<33> manufacturer;
-    ZigbeeStr<33> model;
+    zigbee_str_t<33> manufacturer;
+    zigbee_str_t<33> model;
 };
 
 template<> struct zcl_description_t<zb_zcl_basic_names_t> {
@@ -91,13 +91,13 @@ template<> struct zcl_description_t<zb_zcl_basic_attrs_ext_t> {
 	        attribute_t{.m = &T::app_version,   .id = ZB_ZCL_ATTR_BASIC_APPLICATION_VERSION_ID},
 	        attribute_t{.m = &T::stack_version, .id = ZB_ZCL_ATTR_BASIC_STACK_VERSION_ID},
 	        attribute_t{.m = &T::hw_version,    .id = ZB_ZCL_ATTR_BASIC_HW_VERSION_ID},
-	        attribute_t{.m = &T::mf_name,       .id = ZB_ZCL_ATTR_BASIC_MANUFACTURER_NAME_ID,    .a = Access::Read, .type=Type::CharStr},
-	        attribute_t{.m = &T::model_id,      .id = ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID,     .a = Access::Read, .type=Type::CharStr},
-	        attribute_t{.m = &T::date_code,     .id = ZB_ZCL_ATTR_BASIC_DATE_CODE_ID,            .a = Access::Read, .type=Type::CharStr},
-	        attribute_t{.m = &T::power_source,  .id = ZB_ZCL_ATTR_BASIC_POWER_SOURCE_ID,         .a = Access::Read, .type=Type::E8},
-	        attribute_t{.m = &T::location_id,   .id = ZB_ZCL_ATTR_BASIC_LOCATION_DESCRIPTION_ID, .a = Access::RW,   .type=Type::CharStr},
-	        attribute_t{.m = &T::ph_env,        .id = ZB_ZCL_ATTR_BASIC_PHYSICAL_ENVIRONMENT_ID, .a = Access::RW,   .type=Type::E8},
-	        attribute_t{.m = &T::sw_ver,        .id = ZB_ZCL_ATTR_BASIC_SW_BUILD_ID,             .a = Access::Read, .type=Type::CharStr}
+	        attribute_t{.m = &T::mf_name,       .id = ZB_ZCL_ATTR_BASIC_MANUFACTURER_NAME_ID,    .a = access_t::Read, .type=type_t::CharStr},
+	        attribute_t{.m = &T::model_id,      .id = ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID,     .a = access_t::Read, .type=type_t::CharStr},
+	        attribute_t{.m = &T::date_code,     .id = ZB_ZCL_ATTR_BASIC_DATE_CODE_ID,            .a = access_t::Read, .type=type_t::CharStr},
+	        attribute_t{.m = &T::power_source,  .id = ZB_ZCL_ATTR_BASIC_POWER_SOURCE_ID,         .a = access_t::Read, .type=type_t::E8},
+	        attribute_t{.m = &T::location_id,   .id = ZB_ZCL_ATTR_BASIC_LOCATION_DESCRIPTION_ID, .a = access_t::RW,   .type=type_t::CharStr},
+	        attribute_t{.m = &T::ph_env,        .id = ZB_ZCL_ATTR_BASIC_PHYSICAL_ENVIRONMENT_ID, .a = access_t::RW,   .type=type_t::E8},
+	        attribute_t{.m = &T::sw_ver,        .id = ZB_ZCL_ATTR_BASIC_SW_BUILD_ID,             .a = access_t::Read, .type=type_t::CharStr}
 	>{}
 	>{};
     }
@@ -111,7 +111,7 @@ template<> struct zcl_description_t<zb_zcl_identify_attrs_t> {
 	return cluster_t<
 	{.id = ZB_ZCL_CLUSTER_ID_IDENTIFY},
 	    attributes_t<
-		attribute_t{.m = &T::identify_time, .id = ZB_ZCL_ATTR_IDENTIFY_IDENTIFY_TIME_ID, .a = Access::RW}
+		attribute_t{.m = &T::identify_time, .id = ZB_ZCL_ATTR_IDENTIFY_IDENTIFY_TIME_ID, .a = access_t::RW}
 	>{}
 	>{};
     }
@@ -125,7 +125,7 @@ template<> struct zcl_description_t<zb_zcl_on_off_attrs_t> {
 	return cluster_t<
 	{.id = ZB_ZCL_CLUSTER_ID_ON_OFF},
 	    attributes_t<
-		attribute_t{.m = &T::on_off, .id = ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID, .a = Access::RPS, .type=Type::Bool}
+		attribute_t{.m = &T::on_off, .id = ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID, .a = access_t::RPS, .type=type_t::Bool}
 	>{}
 	>{};
     }
@@ -136,7 +136,7 @@ template<> struct zcl_description_t<zb_zcl_on_off_attrs_client_t> {
     static constexpr auto get()
     {
 	return cluster_t<
-	{.id = ZB_ZCL_CLUSTER_ID_ON_OFF, .role = Role::Client},
+	{.id = ZB_ZCL_CLUSTER_ID_ON_OFF, .role = role_t::Client},
 	    attributes_t<>{},
 	    commands_t<
 		&zb_zcl_on_off_attrs_client_t::on
@@ -155,7 +155,7 @@ template<> struct zcl_description_t<zb_zcl_groups_attrs_t> {
 	return cluster_t<
 	{.id = ZB_ZCL_CLUSTER_ID_GROUPS},
 	    attributes_t<
-		attribute_t{.m = &T::name_support, .id = ZB_ZCL_ATTR_GROUPS_NAME_SUPPORT_ID, .a = Access::Read, .type=Type::Map8}
+		attribute_t{.m = &T::name_support, .id = ZB_ZCL_ATTR_GROUPS_NAME_SUPPORT_ID, .a = access_t::Read, .type=type_t::Map8}
 	>{}
 	>{};
     }
@@ -169,11 +169,11 @@ template<> struct zcl_description_t<zb_zcl_scenes_attrs_t> {
 	return cluster_t<
 	{.id = ZB_ZCL_CLUSTER_ID_SCENES},
 	    attributes_t<
-		attribute_t{.m = &T::scene_count,   .id = ZB_ZCL_ATTR_SCENES_SCENE_COUNT_ID,   .a = Access::Read}
-	      , attribute_t{.m = &T::current_scene, .id = ZB_ZCL_ATTR_SCENES_CURRENT_SCENE_ID, .a = Access::Read}
-	      , attribute_t{.m = &T::scene_valid,   .id = ZB_ZCL_ATTR_SCENES_SCENE_VALID_ID,   .a = Access::Read, .type=Type::Bool}
-	      , attribute_t{.m = &T::name_support,  .id = ZB_ZCL_ATTR_SCENES_NAME_SUPPORT_ID,  .a = Access::Read, .type=Type::Map8}
-	      , attribute_t{.m = &T::current_group, .id = ZB_ZCL_ATTR_SCENES_CURRENT_GROUP_ID, .a = Access::Read}
+		attribute_t{.m = &T::scene_count,   .id = ZB_ZCL_ATTR_SCENES_SCENE_COUNT_ID,   .a = access_t::Read}
+	      , attribute_t{.m = &T::current_scene, .id = ZB_ZCL_ATTR_SCENES_CURRENT_SCENE_ID, .a = access_t::Read}
+	      , attribute_t{.m = &T::scene_valid,   .id = ZB_ZCL_ATTR_SCENES_SCENE_VALID_ID,   .a = access_t::Read, .type=type_t::Bool}
+	      , attribute_t{.m = &T::name_support,  .id = ZB_ZCL_ATTR_SCENES_NAME_SUPPORT_ID,  .a = access_t::Read, .type=type_t::Map8}
+	      , attribute_t{.m = &T::current_group, .id = ZB_ZCL_ATTR_SCENES_CURRENT_GROUP_ID, .a = access_t::Read}
 	>{}
 	>{};
     }
@@ -187,8 +187,8 @@ template<> struct zcl_description_t<zb_zcl_level_control_attrs_t> {
 	return cluster_t<
 	{.id = ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL},
 	    attributes_t<
-		attribute_t{.m = &T::current_level, .id = ZB_ZCL_ATTR_LEVEL_CONTROL_CURRENT_LEVEL_ID, .a = Access::RPS}
-	      , attribute_t{.m = &T::remaining_time, .id = ZB_ZCL_ATTR_LEVEL_CONTROL_REMAINING_TIME_ID, .a = Access::Read}
+		attribute_t{.m = &T::current_level, .id = ZB_ZCL_ATTR_LEVEL_CONTROL_CURRENT_LEVEL_ID, .a = access_t::RPS}
+	      , attribute_t{.m = &T::remaining_time, .id = ZB_ZCL_ATTR_LEVEL_CONTROL_REMAINING_TIME_ID, .a = access_t::Read}
 	>{}
 	>{};
     }

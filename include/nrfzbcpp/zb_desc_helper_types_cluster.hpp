@@ -10,13 +10,13 @@
 
 namespace zb
 {
-    enum class FrameDirection: uint8_t
+    enum class frame_direction_t: uint8_t
     {
         ToServer = ZB_ZCL_FRAME_DIRECTION_TO_SRV,
         ToClient = ZB_ZCL_FRAME_DIRECTION_TO_CLI
     };
 
-    enum class AddrMode: uint8_t
+    enum class addr_mode_t: uint8_t
     {
         NoAddr_NoEP = ZB_APS_ADDR_MODE_DST_ADDR_ENDP_NOT_PRESENT,
         Group_NoEP = ZB_APS_ADDR_MODE_16_GROUP_ENDP_NOT_PRESENT,
@@ -30,7 +30,7 @@ namespace zb
         struct{
             uint8_t cluster_specific     : 1;
             uint8_t manufacture_specific : 1;
-            FrameDirection direction     : 1;
+            frame_direction_t direction     : 1;
             uint8_t disable_default_response : 1;
         } f;
         uint8_t u8;
@@ -64,28 +64,28 @@ namespace zb
 
         mem_attr_t<T, MemType> m;
         zb_uint16_t id;
-        Access a = Access::Read;
-        Type type = TypeToTypeId<MemType>();
+        access_t a = access_t::Read;
+        type_t type = TypeToTypeId<MemType>();
         attr_validator_t validator = ValidatorForType<MemType>();
 
-        constexpr inline bool has_access(Access _a) const { return a & _a; } 
+        constexpr inline bool has_access(access_t _a) const { return a & _a; } 
         constexpr inline bool has_validator() const { return validator != nullptr; }
         constexpr inline bool is_cvc() const { 
-            if (a & Access::Report)
+            if (a & access_t::Report)
             {
                 switch(type)
                 {
-                    case Type::S8:
-                    case Type::U8:
-                    case Type::S16:
-                    case Type::U16:
-                    case Type::S24:
-                    case Type::U24:
-                    case Type::S32:
-                    case Type::U32:
-                    case Type::Float:
-                    case Type::HalfFloat:
-                    case Type::Double:
+                    case type_t::S8:
+                    case type_t::U8:
+                    case type_t::S16:
+                    case type_t::U16:
+                    case type_t::S24:
+                    case type_t::U24:
+                    case type_t::S32:
+                    case type_t::U32:
+                    case type_t::Float:
+                    case type_t::HalfFloat:
+                    case type_t::Double:
                         return true;
                     default:
                         break;
@@ -159,7 +159,7 @@ namespace zb
     {
         zb_uint16_t id;
         zb_uint16_t rev = 0;
-        Role        role = Role::Server;
+        role_t        role = role_t::Server;
         zb_uint16_t manuf_code = ZB_ZCL_MANUF_CODE_INVALID;
 
         constexpr bool operator==(cluster_info_t const&) const = default;
@@ -170,7 +170,7 @@ namespace zb
         zb_callback_t cb;
         zb_addr_u dst_addr;
         uint8_t dst_ep;
-        AddrMode addr_mode;
+        addr_mode_t addr_mode;
         bool canceled;
     };
 
@@ -208,12 +208,12 @@ namespace zb
         using request_runtime_arg_t<I, Args>::get...;
         using request_runtime_arg_t<I, Args>::copy_to...;
 
-        request_runtime_args_var_t(zb_callback_t cb, uint16_t short_a, uint8_t e, AddrMode _addr_mode, Args&&... args):
+        request_runtime_args_var_t(zb_callback_t cb, uint16_t short_a, uint8_t e, addr_mode_t _addr_mode, Args&&... args):
             request_runtime_args_base_t{.cb = cb, .dst_addr = {.addr_short = short_a} , .dst_ep = e, .addr_mode = _addr_mode, .canceled = false},
             request_runtime_arg_t<I, Args>{args}...
         {}
 
-        request_runtime_args_var_t(zb_callback_t cb, zb_ieee_addr_t long_a, uint8_t e, AddrMode _addr_mode, Args&&... args):
+        request_runtime_args_var_t(zb_callback_t cb, zb_ieee_addr_t long_a, uint8_t e, addr_mode_t _addr_mode, Args&&... args):
             request_runtime_args_base_t{.cb = cb, .dst_ep = e, .addr_mode = _addr_mode, .canceled = false},
             request_runtime_arg_t<I, Args>{args}...
         {
@@ -243,12 +243,12 @@ namespace zb
     };
 
     template<class T, bool exists>
-    struct ConditionalVar;
+    struct conditional_var_t;
 
     template<class T>
-    struct ConditionalVar<T, true> { T value; };
+    struct conditional_var_t<T, true> { T value; };
     template<class T>
-    struct ConditionalVar<T, false> {};
+    struct conditional_var_t<T, false> {};
     //as NTTP to cluster description template type
     template<cmd_cfg_t cfg, class... Args>
     struct cluster_cmd_desc_t
@@ -268,7 +268,7 @@ namespace zb
 
         static constexpr uint8_t kCmdId = cfg.cmd_id;
 
-        [[no_unique_address]]ConditionalVar<typed_callback_t, cfg.receive> m_Callback{};
+        [[no_unique_address]]conditional_var_t<typed_callback_t, cfg.receive> m_Callback{};
 
         static zb_bool_t on_recv_cmd(zb_uint8_t param)
         {
@@ -286,35 +286,35 @@ namespace zb
 
         template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
         static args_ret_t prepare_args(zb_callback_t cb, TArgs&&... args) { 
-            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, uint16_t(0), uint8_t(0), AddrMode::NoAddr_NoEP, std::forward<Args>(args)...)); 
+            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, uint16_t(0), uint8_t(0), addr_mode_t::NoAddr_NoEP, std::forward<Args>(args)...)); 
             return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
         }
 
         template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-        static args_ret_t prepare_args(zb_callback_t cb, uint16_t short_addr, uint8_t ep, TArgs&&... args) 
-        { 
-            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, short_addr, ep, AddrMode::Dst16EP, std::forward<Args>(args)...)); 
+        static args_ret_t prepare_args(zb_callback_t cb, uint16_t short_addr, uint8_t ep, TArgs&&... args)
+        {
+            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, short_addr, ep, addr_mode_t::Dst16EP, std::forward<Args>(args)...));
             return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
         }
 
         template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
         static args_ret_t prepare_args(zb_callback_t cb, zb_ieee_addr_t ieee_addr, uint8_t ep, TArgs&&... args)
         {
-            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, ieee_addr, ep, AddrMode::Dst64EP, std::forward<Args>(args)...)); 
+            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, ieee_addr, ep, addr_mode_t::Dst64EP, std::forward<Args>(args)...)); 
             return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
         }
 
         template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-        static args_ret_t prepare_args(zb_callback_t cb, uint16_t group_addr, TArgs&&... args) 
-        { 
-            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, group_addr, uint8_t(0), AddrMode::Group_NoEP, std::forward<Args>(args)...)); 
+        static args_ret_t prepare_args(zb_callback_t cb, uint16_t group_addr, TArgs&&... args)
+        {
+            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, group_addr, uint8_t(0), addr_mode_t::Group_NoEP, std::forward<Args>(args)...));
             return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
         }
 
         template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-        static args_ret_t prepare_args(zb_callback_t cb, uint8_t bind_table_id, TArgs&&... args) 
-        { 
-            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, uint16_t(0), bind_table_id, AddrMode::EPAsBindTableId, std::forward<Args>(args)...)); 
+        static args_ret_t prepare_args(zb_callback_t cb, uint8_t bind_table_id, TArgs&&... args)
+        {
+            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, uint16_t(0), bind_table_id, addr_mode_t::EPAsBindTableId, std::forward<Args>(args)...));
             return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
         }
             
@@ -359,11 +359,11 @@ namespace zb
 
             constexpr uint16_t manu_code = i.manuf_code != ZB_ZCL_MANUF_CODE_INVALID ? i.manuf_code : cfg.manuf_code;
 
-            static_assert(i.role == Role::Client || i.role == Role::Server);
+            static_assert(i.role == role_t::Client || i.role == role_t::Server);
             frame_ctl_t f{.f{
                 .cluster_specific = true, 
                 .manufacture_specific = manu_code != ZB_ZCL_MANUF_CODE_INVALID
-                , .direction = i.role == Role::Client ? FrameDirection::ToServer : FrameDirection::ToClient
+                , .direction = i.role == role_t::Client ? frame_direction_t::ToServer : frame_direction_t::ToClient
                 , .disable_default_response = false
             }};
             ZB_ZCL_GET_SEQ_NUM();
@@ -399,7 +399,7 @@ namespace zb
         template<class A> requires (alignof(A) != 1)
         A operator()(A *pDummy)
         {
-            static_assert(sizeof(A) <= 4, "Type is too big");
+            static_assert(sizeof(A) <= 4, "type_t is too big");
             const A *p = (const A*)pData;
             pData += sizeof(A);
             A ret;
@@ -411,11 +411,11 @@ namespace zb
     template<zb_uint8_t cmd_id, class... Args>
     struct cluster_in_cmd_desc_t: cluster_cmd_desc_t<{.cmd_id = cmd_id, .pool_size = 0, .receive = true}, Args...> {
         using this_type = cluster_in_cmd_desc_t<cmd_id, Args...>;
-        using callback_t = CmdHandlingResult(*)(Args const&...);
+        using callback_t = cmd_handling_result_t(*)(Args const&...);
         static constexpr size_t kArgRawSize = (sizeof(Args) + ... + 0);
         callback_t cb = nullptr;
 
-        static CmdHandlingResult raw_handler(zb_zcl_parsed_hdr_t* pHdr, std::span<uint8_t> data, void *pField)
+        static cmd_handling_result_t raw_handler(zb_zcl_parsed_hdr_t* pHdr, std::span<uint8_t> data, void *pField)
         {
             this_type *pThis = (this_type *)pField;
             if (!pThis->cb) return {RET_OK, false};
@@ -455,7 +455,7 @@ namespace zb
     struct cluster_attributes_desc_t
     {
         static_assert(attribute_tools::kAllUniqueIds<attributeMemberDesc...>, "All attribute ids must be unique!");
-        static constexpr inline size_t count_members_with_access(Access a) { return ((size_t)attributeMemberDesc.has_access(a) + ... + 0); }
+        static constexpr inline size_t count_members_with_access(access_t a) { return ((size_t)attributeMemberDesc.has_access(a) + ... + 0); }
         static constexpr inline size_t count_cvc_members() { return ((size_t)attributeMemberDesc.is_cvc() + ... + 0); }
         static constexpr inline size_t count_members_with_validators() { return ((size_t)attributeMemberDesc.has_validator() + ... + 0); }
 
@@ -498,9 +498,9 @@ namespace zb
         static constexpr inline size_t count_generated() { return ((size_t)mem_ptr_traits<decltype(cmdMemberDesc)>::MemberType::is_generated() + ... + 0); }
         static constexpr inline size_t count_received() { return ((size_t)mem_ptr_traits<decltype(cmdMemberDesc)>::MemberType::is_received() + ... + 0); }
 
-        static constexpr RawHandlerResult find_cmd_handler(uint8_t id, auto *pStruct)
+        static constexpr raw_handler_result_t find_cmd_handler(uint8_t id, auto *pStruct)
         {
-            RawHandlerResult res;
+            raw_handler_result_t res;
             bool found = false;
             auto check = [&]<class CmdType>(CmdType *pF){
                 if constexpr (CmdType::is_received())
@@ -564,7 +564,7 @@ namespace zb
     struct cluster_struct_desc_t
     {
         static constexpr inline auto info() { return ci; }
-        static constexpr inline size_t count_members_with_access(Access a) { return attributes.count_members_with_access(a); }
+        static constexpr inline size_t count_members_with_access(access_t a) { return attributes.count_members_with_access(a); }
         static constexpr inline size_t count_cvc_members() { return attributes.count_cvc_members(); }
         static constexpr inline size_t count_members_with_validators() { return attributes.count_members_with_validators(); }
         static constexpr inline auto max_command_pool_size() { return cmds.max_command_pool_size(); }
@@ -572,7 +572,7 @@ namespace zb
         static constexpr inline size_t count_received() { return cmds.count_received(); }
         static constexpr inline auto get_generated_commands() { return cmds.get_generated_commands(); }
         static constexpr inline auto get_received_commands() { return cmds.get_received_commands(); }
-        static constexpr RawHandlerResult find_cmd_handler(uint8_t id, auto *pStruct) { return cmds.find_cmd_handler(id, pStruct); }
+        static constexpr raw_handler_result_t find_cmd_handler(uint8_t id, auto *pStruct) { return cmds.find_cmd_handler(id, pStruct); }
         static constexpr attr_validator_t find_validator_for_attr(uint16_t id) { return attributes.find_attribute_validator(id); }
 
         template<auto memPtr>
@@ -595,7 +595,7 @@ namespace zb
     constexpr zb_uint16_t cluster_id_v = zb::zcl_description_t<ClusterType>::get().info().id;
 
     template<class T, class DestT, class MemType> requires std::is_base_of_v<DestT, T>
-    constexpr ADesc<MemType> attribute_declaration_to_real_attribute_description(T& s, attribute_mem_desc_t<DestT,MemType> d) { return {.id = d.id, .a = d.a, .pData = &(s.*d.m), .type = d.type}; }
+    constexpr attribute_desc_t<MemType> attribute_declaration_to_real_attribute_description(T& s, attribute_mem_desc_t<DestT,MemType> d) { return {.id = d.id, .a = d.a, .pData = &(s.*d.m), .type = d.type}; }
 
     template<class T,cluster_info_t ci, auto... ClusterMemDescriptions, cluster_attributes_desc_t<ClusterMemDescriptions...> attributes, cluster_commands_desc_t cmds>
     constexpr auto cluster_struct_to_attr_list(T &s, cluster_struct_desc_t<ci, attributes, cmds>)
@@ -617,15 +617,15 @@ namespace zb
         template<class Cluster>
         constexpr bool AllClientClustersAtEnd() { return true; }
 
-        template<class FirstCluster, class NextCluster, class... RestClusters> requires (FirstCluster::is_role(Role::Client))
+        template<class FirstCluster, class NextCluster, class... RestClusters> requires (FirstCluster::is_role(role_t::Client))
         constexpr bool AllClientClustersAtEnd()
         {
             //skip until first client server
-            static_assert(FirstCluster::is_role(Role::Client) == NextCluster::is_role(Role::Client), "Client (output) clusters must be grouped at the end!");
-            return NextCluster::is_role(Role::Client) && AllClientClustersAtEnd<FirstCluster, RestClusters...>();
+            static_assert(FirstCluster::is_role(role_t::Client) == NextCluster::is_role(role_t::Client), "Client (output) clusters must be grouped at the end!");
+            return NextCluster::is_role(role_t::Client) && AllClientClustersAtEnd<FirstCluster, RestClusters...>();
         }
 
-        template<class FirstCluster, class... RestClusters> requires ((sizeof...(RestClusters) > 0) && FirstCluster::is_role(Role::Server))
+        template<class FirstCluster, class... RestClusters> requires ((sizeof...(RestClusters) > 0) && FirstCluster::is_role(role_t::Server))
         constexpr bool AllClientClustersAtEnd()
         {
             //skip until first client server
@@ -656,11 +656,11 @@ namespace zb
             else
                 return 0;
         }
-        static constexpr size_t reporting_attributes_count() { return (T::attributes_with_access(Access::Report) + ... + 0); }
+        static constexpr size_t reporting_attributes_count() { return (T::attributes_with_access(access_t::Report) + ... + 0); }
         static constexpr size_t cvc_attributes_count() { return (T::cvc_attributes() + ... + 0); }
 
-        static constexpr size_t server_cluster_count() { return (T::is_role(Role::Server) + ... + 0); }
-        static constexpr size_t client_cluster_count() { return (T::is_role(Role::Client) + ... + 0); }
+        static constexpr size_t server_cluster_count() { return (T::is_role(role_t::Server) + ... + 0); }
+        static constexpr size_t client_cluster_count() { return (T::is_role(role_t::Client) + ... + 0); }
         static constexpr bool has_info(cluster_info_t ci) { return ((T::info() == ci) || ...); }
 
         constexpr TClusterList(T&... d):
@@ -671,7 +671,7 @@ namespace zb
         alignas(4) zb_zcl_cluster_desc_t clusters[N];
     };
     
-    struct AdditionalClusterHandlers
+    struct additional_cluster_handlers_t
     {
         uint8_t ep;
         uint16_t cluster;
@@ -679,20 +679,20 @@ namespace zb
         zb_zcl_cluster_handler_t cmd_handler;
     };
 
-    struct ReservedArrayAdditionalClusterHandlers
+    struct reserved_array_additional_cluster_handlers_t
     {
         constexpr static size_t kMaxEntries = 4;
         uint8_t size = 0;
-        AdditionalClusterHandlers slots[kMaxEntries];
+        additional_cluster_handlers_t slots[kMaxEntries];
 
-        AdditionalClusterHandlers* add()
+        additional_cluster_handlers_t* add()
         {
             if (size < kMaxEntries)
                 return &slots[size++];
             return nullptr;
         }
 
-        AdditionalClusterHandlers* find(uint8_t ep, uint16_t cluster)
+        additional_cluster_handlers_t* find(uint8_t ep, uint16_t cluster)
         {
             for(int i = 0; i < size; ++i)
             {
@@ -703,7 +703,7 @@ namespace zb
         }
     };
 
-    inline ReservedArrayAdditionalClusterHandlers g_AdditionalClusterHandlers;
+    inline reserved_array_additional_cluster_handlers_t g_AdditionalClusterHandlers;
 
     template<class StructTag, uint8_t ep>
     inline zb_ret_t on_cluster_check_value(zb_uint16_t attr_id, zb_uint8_t endpoint, zb_uint8_t *value)
@@ -730,7 +730,7 @@ namespace zb
         }
 
         zb_zcl_parsed_hdr_t *cmd_info = ZB_BUF_GET_PARAM(param, zb_zcl_parsed_hdr_t);
-        CmdHandlingResult r;
+        cmd_handling_result_t r;
         if (cmd_info->addr_data.common_data.dst_endpoint != ep)
         {
             auto *pSlot = g_AdditionalClusterHandlers.find(cmd_info->addr_data.common_data.dst_endpoint, cmd_info->cluster_id);

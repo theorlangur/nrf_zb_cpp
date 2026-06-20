@@ -7,13 +7,13 @@
 namespace zb
 {
     template<class T>
-        struct settings_entry
+        struct settings_entry_t
         {
             const char *name;
             T &mem;
         };
     template<class T>
-        settings_entry(const char *n, T &m) -> settings_entry<T>;
+        settings_entry_t(const char *n, T &m) -> settings_entry_t<T>;
 
     template<auto entry, zb::set_attr_value_handler_t h = nullptr>
         void on_setting_changed(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam)
@@ -24,7 +24,7 @@ namespace zb
         }
 
     template<size_t off, auto... entries>
-        struct persistent_settings_manager
+        struct persistent_settings_manager_t
         {
             static int zigbee_settings_export(int (*cb)(const char *name,
                                                        const void *value, size_t val_len))

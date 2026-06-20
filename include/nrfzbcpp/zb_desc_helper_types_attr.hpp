@@ -9,23 +9,23 @@ namespace zb
     inline constexpr zb_zcl_attr_t g_LastAttribute{
         .id = ZB_ZCL_NULL_ID,
         .type = ZB_ZCL_ATTR_TYPE_NULL,
-        .access = (zb_uint8_t)Access::None,
+        .access = (zb_uint8_t)access_t::None,
         .manuf_code = ZB_ZCL_NON_MANUFACTURER_SPECIFIC,
         .data_p = nullptr
     };
 
     template<class T>
-    struct ADesc
+    struct attribute_desc_t
     {
         using simplified_tag = void;
         zb_uint16_t id;
-        Access a;
+        access_t a;
         T *pData;
-        Type type = TypeToTypeId<T>();
+        type_t type = TypeToTypeId<T>();
     };
 
     template<class T>
-    constexpr zb_zcl_attr_t AttrDesc(ADesc<T> d)
+    constexpr zb_zcl_attr_t AttrDesc(attribute_desc_t<T> d)
     {
         return {
             .id = d.id, 
@@ -43,21 +43,21 @@ namespace zb
     };
 
     template<class StructTag, size_t N>
-    struct TAttributeList
+    struct attribute_list_t
     {
         using Tag = decltype(zcl_description_t<StructTag>::get());
 
-        TAttributeList(TAttributeList const&) = delete;
-        TAttributeList(TAttributeList &&) = delete;
-        void operator=(TAttributeList const&) = delete;
-        void operator=(TAttributeList &&) = delete;
+        attribute_list_t(attribute_list_t const&) = delete;
+        attribute_list_t(attribute_list_t &&) = delete;
+        void operator=(attribute_list_t const&) = delete;
+        void operator=(attribute_list_t &&) = delete;
 
 
         template<class... T>
-        constexpr TAttributeList(StructTag *pData, ADesc<T>... d):
+        constexpr attribute_list_t(StructTag *pData, attribute_desc_t<T>... d):
             cluster_struct(pData)
             ,attributes{
-                AttrDesc(zb::ADesc{ .id = ZB_ZCL_ATTR_GLOBAL_CLUSTER_REVISION_ID, .a = Access::Read, .pData = &rev }),
+                AttrDesc(zb::attribute_desc_t{ .id = ZB_ZCL_ATTR_GLOBAL_CLUSTER_REVISION_ID, .a = access_t::Read, .pData = &rev }),
                 AttrDesc(d)...
                 , g_LastAttribute
             },
@@ -67,7 +67,7 @@ namespace zb
         {
         }
 
-        RawHandlerResult find_handler_for_cmd(uint8_t id)
+        raw_handler_result_t find_handler_for_cmd(uint8_t id)
         {
             return Tag::find_cmd_handler(id, cluster_struct);
         }
@@ -81,8 +81,8 @@ namespace zb
         constexpr operator zb_discover_cmd_list_t*() { return &cmd_list; }
 
         constexpr static auto max_command_pool_size() { return Tag::max_command_pool_size(); }
-        constexpr static bool is_role(Role r) { return Tag::info().role == r; }
-        constexpr static size_t attributes_with_access(Access r) { return Tag::count_members_with_access(r); }
+        constexpr static bool is_role(role_t r) { return Tag::info().role == r; }
+        constexpr static size_t attributes_with_access(access_t r) { return Tag::count_members_with_access(r); }
         constexpr static size_t cvc_attributes() { return Tag::count_cvc_members(); }
         constexpr static auto info() { return Tag::info(); }
 
@@ -115,9 +115,9 @@ namespace zb
     };
 
     template<class ClusterTag, class... T>
-    constexpr auto MakeAttributeList(ClusterTag *t, ADesc<T>... d)->TAttributeList<ClusterTag, sizeof...(T)>
+    constexpr auto MakeAttributeList(ClusterTag *t, attribute_desc_t<T>... d)->attribute_list_t<ClusterTag, sizeof...(T)>
     {
-        return TAttributeList<ClusterTag, sizeof...(T)>(t, d...);
+        return attribute_list_t<ClusterTag, sizeof...(T)>(t, d...);
     }
 }
 #endif

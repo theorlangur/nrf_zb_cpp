@@ -20,7 +20,7 @@ namespace zb
     };
 
     template<auto F>
-    struct typed_set_attr_value_handler
+    struct typed_set_attr_value_handler_t
     {
         static constexpr bool value = false;
         static_assert(sizeof(F) == 0, "Not supported signature");
@@ -29,13 +29,13 @@ namespace zb
         }
     };
 
-    template<class T> using TypedSetHandlerV1 = void(*)(const T&);
-    template<class T> using TypedSetHandlerV2 = void(*)(const T&, zb_zcl_device_callback_param_t *pDevCBParam);
-    template<class T> using TypedSetHandlerV3 = void(*)(const T&, zb_zcl_device_callback_param_t *pDevCBParam, zb_zcl_set_attr_value_param_t *p);
-    using TypedSetHandlerV4 = void(*)();
-    template<class T> using TypedSetHandlerV1_Copy = void(*)(T);
-    template<class T> using TypedSetHandlerV2_Copy = void(*)(T, zb_zcl_device_callback_param_t *pDevCBParam);
-    template<class T> using TypedSetHandlerV3_Copy = void(*)(T, zb_zcl_device_callback_param_t *pDevCBParam, zb_zcl_set_attr_value_param_t *p);
+    template<class T> using typed_set_handler_v1_t = void(*)(const T&);
+    template<class T> using typed_set_handler_v2_t = void(*)(const T&, zb_zcl_device_callback_param_t *pDevCBParam);
+    template<class T> using typed_set_handler_v3_t = void(*)(const T&, zb_zcl_device_callback_param_t *pDevCBParam, zb_zcl_set_attr_value_param_t *p);
+    using typed_set_handler_v4_t = void(*)();
+    template<class T> using typed_set_handler_v1_t_copy = void(*)(T);
+    template<class T> using typed_set_handler_v2_t_copy = void(*)(T, zb_zcl_device_callback_param_t *pDevCBParam);
+    template<class T> using typed_set_handler_v3_t_copy = void(*)(T, zb_zcl_device_callback_param_t *pDevCBParam, zb_zcl_set_attr_value_param_t *p);
 
     template<class T>
     T const& get_typed_data(zb_zcl_set_attr_value_param_t *p)
@@ -100,26 +100,26 @@ namespace zb
     }
 
 
-    template<class T, TypedSetHandlerV1<T> F>
-    struct typed_set_attr_value_handler<F>: internals::set_attr_v1<T, F> {};
+    template<class T, typed_set_handler_v1_t<T> F>
+    struct typed_set_attr_value_handler_t<F>: internals::set_attr_v1<T, F> {};
 
-    template<class T, TypedSetHandlerV1_Copy<T> F>
-    struct typed_set_attr_value_handler<F>: internals::set_attr_v1<T, F> {};
+    template<class T, typed_set_handler_v1_t_copy<T> F>
+    struct typed_set_attr_value_handler_t<F>: internals::set_attr_v1<T, F> {};
 
-    template<class T, TypedSetHandlerV2<T> F>
-    struct typed_set_attr_value_handler<F>: internals::set_attr_v2<T, F> {};
+    template<class T, typed_set_handler_v2_t<T> F>
+    struct typed_set_attr_value_handler_t<F>: internals::set_attr_v2<T, F> {};
 
-    template<class T, TypedSetHandlerV2_Copy<T> F>
-    struct typed_set_attr_value_handler<F>: internals::set_attr_v2<T, F> {};
+    template<class T, typed_set_handler_v2_t_copy<T> F>
+    struct typed_set_attr_value_handler_t<F>: internals::set_attr_v2<T, F> {};
 
-    template<class T, TypedSetHandlerV3<T> F>
-    struct typed_set_attr_value_handler<F>: internals::set_attr_v3<T, F> {};
+    template<class T, typed_set_handler_v3_t<T> F>
+    struct typed_set_attr_value_handler_t<F>: internals::set_attr_v3<T, F> {};
 
-    template<class T, TypedSetHandlerV3_Copy<T> F>
-    struct typed_set_attr_value_handler<F>: internals::set_attr_v3<T, F> {};
+    template<class T, typed_set_handler_v3_t_copy<T> F>
+    struct typed_set_attr_value_handler_t<F>: internals::set_attr_v3<T, F> {};
 
-    template<TypedSetHandlerV4 F>
-    struct typed_set_attr_value_handler<F>
+    template<typed_set_handler_v4_t F>
+    struct typed_set_attr_value_handler_t<F>
     {
         using Arg = void;
         static constexpr bool value = true;
@@ -130,10 +130,10 @@ namespace zb
     template<auto F> 
     struct to_handler_t;
 
-    template<auto F> requires typed_set_attr_value_handler<F>::value
+    template<auto F> requires typed_set_attr_value_handler_t<F>::value
     struct to_handler_t<F>
     {
-        static constexpr set_attr_value_handler_t value = typed_set_attr_value_handler<F>::handle;
+        static constexpr set_attr_value_handler_t value = typed_set_attr_value_handler_t<F>::handle;
     };
 
     template<auto F>
@@ -142,39 +142,39 @@ namespace zb
     template<auto kAttr, auto f>
     constexpr set_attr_val_gen_desc_t handle_set_for(auto &ep)
     {
-        using fArg = std::remove_cvref_t<typename typed_set_attr_value_handler<f>::Arg>;
+        using fArg = std::remove_cvref_t<typename typed_set_attr_value_handler_t<f>::Arg>;
         using MemType = std::remove_cvref_t<typename mem_ptr_traits<decltype(kAttr)>::MemberType>;
         if constexpr (std::is_same_v<fArg, MemType>)//same types - simple
             return zb::set_attr_val_gen_desc_t{ep.template attribute_desc<kAttr>(), zb::to_handler_v<f>};
         else
         {
             static_assert(std::is_convertible_v<MemType, fArg>, "Cannot convert attribute member type to set function 1st argument type");
-            return zb::set_attr_val_gen_desc_t{ep.template attribute_desc<kAttr>(), typed_set_attr_value_handler<f>::template handle<MemType>};
+            return zb::set_attr_val_gen_desc_t{ep.template attribute_desc<kAttr>(), typed_set_attr_value_handler_t<f>::template handle<MemType>};
         }
     }
 
-    struct SetAttrValHandlingNode: GenericNotificationNode<SetAttrValHandlingNode>
+    struct set_attr_val_handling_node_t: GenericNotificationNode<set_attr_val_handling_node_t>
     {
         set_attr_val_gen_desc_t h;
     };
 
-    struct dev_cb_handlers_desc
+    struct dev_cb_handlers_desc_t
     {
         dev_callback_handler_t default_handler = nullptr;
         err_callback_handler_t error_handler = nullptr;
     };
 
-    struct GenericDeviceCBHandlingNode: GenericNotificationNode<GenericDeviceCBHandlingNode>
+    struct generic_device_cb_handling_node_t: GenericNotificationNode<generic_device_cb_handling_node_t>
     {
         dev_callback_handler_t h;
 
         void DoNotify(zb_zcl_device_callback_param_t *pDevParam) { h(pDevParam); }
     };
 
-    template<dev_cb_handlers_desc generic={}, set_attr_val_gen_desc_t... handlers>
+    template<dev_cb_handlers_desc_t generic={}, set_attr_val_gen_desc_t... handlers>
     void tpl_device_cb(zb_bufid_t bufid)
     {
-        zb::BufViewPtr bv{bufid};
+        zb::buf_view_ptr_t bv{bufid};
         auto *pDevParam = bv.param<zb_zcl_device_callback_param_t>();
         if (!pDevParam)
         {
@@ -201,7 +201,7 @@ namespace zb
                         //    ((handlers.fits(pDevParam->endpoint, pSetVal->cluster_id, pSetVal->attr_id) ? handlers.handler(pSetVal, pDevParam), RET_OK : RET_OK), ...);
                     }
 
-                    for(auto *pN : SetAttrValHandlingNode::g_List)
+                    for(auto *pN : set_attr_val_handling_node_t::g_List)
                     {
                         if (!pN)
                         {
@@ -221,7 +221,7 @@ namespace zb
         if constexpr (generic.default_handler)
             generic.default_handler(pDevParam);
 
-        for(auto *pN : GenericDeviceCBHandlingNode::g_List)
+        for(auto *pN : generic_device_cb_handling_node_t::g_List)
         {
             if (!pN)
             {
@@ -241,7 +241,7 @@ namespace zb
         zb_zcl_no_reporting_cb_t handler;
     };
 
-    struct NoReportHandlingNode: GenericNotificationNode<NoReportHandlingNode>
+    struct no_report_handling_node_t: GenericNotificationNode<no_report_handling_node_t>
     {
         no_report_attr_handler_desc_t h;
     };
@@ -256,7 +256,7 @@ namespace zb
                 ((handlers.fits(ep, cluster_id, attr_id) ? handlers.handler(ep, cluster_id, attr_id), true : true), ...);
         }
 
-        for(auto *pN : NoReportHandlingNode::g_List)
+        for(auto *pN : no_report_handling_node_t::g_List)
         {
             if (pN->h.fits(ep, cluster_id, attr_id))
                 pN->h.handler(ep, cluster_id, attr_id);
@@ -271,7 +271,7 @@ namespace zb
         zb_zcl_report_attr_cb_t handler;
     };
 
-    struct ReportHandlingNode: GenericNotificationNode<ReportHandlingNode>
+    struct report_handling_node_t: GenericNotificationNode<report_handling_node_t>
     {
         report_attr_handler_desc_t h;
     };
@@ -281,10 +281,10 @@ namespace zb
     {
         if constexpr(sizeof(T) == 1)
         {
-            switch(zb::Type(attr_type))
+            switch(zb::type_t(attr_type))
             {
-                case zb::Type::S8:
-                case zb::Type::E8:
+                case zb::type_t::S8:
+                case zb::type_t::E8:
                     return *(T*)value;
                 default:
                     ZB_ASSERT(false);
@@ -294,10 +294,10 @@ namespace zb
         }
         else if constexpr(sizeof(T) == 2)
         {
-            switch(zb::Type(attr_type))
+            switch(zb::type_t(attr_type))
             {
-                case zb::Type::S16:
-                case zb::Type::E16:
+                case zb::type_t::S16:
+                case zb::type_t::E16:
                     return *(T*)value;
                 default:
                     ZB_ASSERT(false);
@@ -307,9 +307,9 @@ namespace zb
         }
         else if constexpr(sizeof(T) == 4)
         {
-            switch(zb::Type(attr_type))
+            switch(zb::type_t(attr_type))
             {
-                case zb::Type::S32: return *(T*)value;
+                case zb::type_t::S32: return *(T*)value;
                 default:
                     ZB_ASSERT(false);
                     zb_osif_abort();
@@ -318,9 +318,9 @@ namespace zb
         }
         else if constexpr(sizeof(T) == 8)
         {
-            switch(zb::Type(attr_type))
+            switch(zb::type_t(attr_type))
             {
-                case zb::Type::S64: return *(T*)value;
+                case zb::type_t::S64: return *(T*)value;
                 default:
                     ZB_ASSERT(false);
                     zb_osif_abort();
@@ -338,10 +338,10 @@ namespace zb
     {
         if constexpr(sizeof(T) == 1)
         {
-            switch(zb::Type(attr_type))
+            switch(zb::type_t(attr_type))
             {
-                case zb::Type::U8:
-                case zb::Type::E8:
+                case zb::type_t::U8:
+                case zb::type_t::E8:
                     return *(T*)value;
                 default:
                     ZB_ASSERT(false);
@@ -351,10 +351,10 @@ namespace zb
         }
         else if constexpr(sizeof(T) == 2)
         {
-            switch(zb::Type(attr_type))
+            switch(zb::type_t(attr_type))
             {
-                case zb::Type::U16:
-                case zb::Type::E16:
+                case zb::type_t::U16:
+                case zb::type_t::E16:
                     return *(T*)value;
                 default:
                     ZB_ASSERT(false);
@@ -364,9 +364,9 @@ namespace zb
         }
         else if constexpr(sizeof(T) == 4)
         {
-            switch(zb::Type(attr_type))
+            switch(zb::type_t(attr_type))
             {
-                case zb::Type::U32: return *(T*)value;
+                case zb::type_t::U32: return *(T*)value;
                 default:
                     ZB_ASSERT(false);
                     zb_osif_abort();
@@ -375,9 +375,9 @@ namespace zb
         }
         else if constexpr(sizeof(T) == 8)
         {
-            switch(zb::Type(attr_type))
+            switch(zb::type_t(attr_type))
             {
-                case zb::Type::U64: return *(T*)value;
+                case zb::type_t::U64: return *(T*)value;
                 default:
                     ZB_ASSERT(false);
                     zb_osif_abort();
@@ -400,7 +400,7 @@ namespace zb
                 ((handlers.fits(ep, cluster_id, attr_id) ? handlers.handler(addr, ep, cluster_id, attr_id, attr_type, value), true : true), ...);
         }
 
-        for(auto *pN : ReportHandlingNode::g_List)
+        for(auto *pN : report_handling_node_t::g_List)
         {
             if (pN->h.fits(ep, cluster_id, attr_id))
                 pN->h.handler(addr, ep, cluster_id, attr_id, attr_type, value);

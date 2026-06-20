@@ -5,7 +5,7 @@
 
 namespace zb
 {
-    struct poll_ctrl_cfg
+    struct poll_ctrl_cfg_t
     {
         uint8_t ep;
         zb_callback_t callback_on_check_in;
@@ -14,8 +14,8 @@ namespace zb
         zb_time_t start_awake_time = 30 * 1000;//30s to configure/communicate
     };
 
-    static inline zb::ZbAlarmExt16 g_EnterLowPowerLongPollMode;
-    template<poll_ctrl_cfg cfg>
+    static inline zb::zb_alarm_ext_16_t g_EnterLowPowerLongPollMode;
+    template<poll_ctrl_cfg_t cfg>
     void configure_poll_control(zb::zb_zcl_poll_ctrl_basic_t &poll_ctrl_cluster)
     {
         zb_zcl_poll_control_start(0, cfg.ep);

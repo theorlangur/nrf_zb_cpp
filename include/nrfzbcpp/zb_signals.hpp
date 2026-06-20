@@ -86,7 +86,7 @@ namespace zb
     template<sig_handlers_t h = {}>
     zb_ret_t tpl_signal_handler(zb_bufid_t bufid)
     {
-        BufPtr b{bufid};
+        buf_ptr_t b{bufid};
         zb_zdo_app_signal_hdr_t *pHdr;
         auto signalId = zb_get_app_signal(bufid, &pHdr);
         zb_ret_t status = zb_buf_get_status(bufid);

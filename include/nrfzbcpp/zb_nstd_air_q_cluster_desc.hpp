@@ -34,8 +34,8 @@ namespace zb
             return cluster_t<
             {.id = KZB_ZCL_CLUSTER_ID_AIR_Q},
                 attributes_t<
-                    attribute_t{.m = &T::tvoc,.id = 0x0000, .a=Access::RP},
-                    attribute_t{.m = &T::aqi, .id = 0x0001, .a=Access::RP}
+                    attribute_t{.m = &T::tvoc,.id = 0x0000, .a=access_t::RP},
+                    attribute_t{.m = &T::aqi, .id = 0x0001, .a=access_t::RP}
             >{}
             >{};
         }

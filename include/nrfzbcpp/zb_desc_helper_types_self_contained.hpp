@@ -6,33 +6,33 @@
 namespace zb
 {
     template<class T>
-    using ToAttributeListType = decltype(zb::cluster_struct_to_attr_list(std::declval<T&>(), zb::zcl_description_t<T>::get()));
+    using to_attribute_list_type_t = decltype(zb::cluster_struct_to_attr_list(std::declval<T&>(), zb::zcl_description_t<T>::get()));
 
     template<class T> struct mem_tag_t{};
 
     template<class T>
-    struct AttributeListContainerMem
+    struct attribute_list_container_mem_t
     {
-        using AttrListType = ToAttributeListType<T>;
+        using AttrListType = to_attribute_list_type_t<T>;
         AttrListType m;
 
         constexpr AttrListType& get(mem_tag_t<T>) { return m; }
     };
 
     template<class... Bases>
-    struct AttributeListContainer: AttributeListContainerMem<Bases>... { using AttributeListContainerMem<Bases>::get...; };
+    struct attribute_list_container_t: attribute_list_container_mem_t<Bases>... { using attribute_list_container_mem_t<Bases>::get...; };
 
     template<class T>
-    struct EPArgsListContainerMem
+    struct ep_args_list_container_mem_t
     {
         T &m;
         constexpr T& get(mem_tag_t<T>) { return m; }
     };
 
-    template<EPBaseInfo i, class... Bases>
-    struct ep_args_t: EPArgsListContainerMem<Bases>... 
+    template<ep_base_info_t i, class... Bases>
+    struct ep_args_t: ep_args_list_container_mem_t<Bases>...
     {
-        using EPArgsListContainerMem<Bases>::get...; 
+        using ep_args_list_container_mem_t<Bases>::get...;
     };
 
     /**********************************************************************/
@@ -48,27 +48,27 @@ namespace zb
     };
 
 
-    template<EPBaseInfo i, class... Bases>
+    template<ep_base_info_t i, class... Bases>
     constexpr auto make_ep_args(Bases&...b) { 
         static_assert(cluster_tools::kAllUniqueIds<Bases...>, "No duplicated cluster Id is allowed!");
         return ep_args_t<i, Bases...>{b...}; 
     }
 
-    template<EPBaseInfo i, ZigbeeClusterStruct... ClusterTypes>
-    struct EPDescSelfContained
+    template<ep_base_info_t i, zigbee_cluster_struct_c... ClusterTypes>
+    struct ep_desc_self_contained_t
     {
-        using ClusterListType = zb::TClusterList<i.ep, ToAttributeListType<ClusterTypes>...>;
+        using ClusterListType = zb::TClusterList<i.ep, to_attribute_list_type_t<ClusterTypes>...>;
 
         static constexpr zb_uint8_t ep_id() { return i.ep; }
 
-        constexpr EPDescSelfContained(ClusterTypes&...s):
+        constexpr ep_desc_self_contained_t(ClusterTypes&...s):
             attributes{ zb::cluster_struct_to_attr_list(s, zb::zcl_description_t<ClusterTypes>::get())... },
             clusters{attributes.get(mem_tag_t<ClusterTypes>{})...},
             ep{clusters}
         {
         }
 
-        constexpr EPDescSelfContained(ep_args_t<i, ClusterTypes...> arg):
+        constexpr ep_desc_self_contained_t(ep_args_t<i, ClusterTypes...> arg):
             attributes{ zb::cluster_struct_to_attr_list(arg.get(mem_tag_t<ClusterTypes>{}), zb::zcl_description_t<ClusterTypes>::get())... },
             clusters{attributes.get(mem_tag_t<ClusterTypes>{})...},
             ep{clusters}
@@ -78,15 +78,15 @@ namespace zb
         template<class StructTag>
         constexpr auto& attribute_list() { return attributes.get(mem_tag_t<StructTag>{}); }
 
-        AttributeListContainer<ClusterTypes...> attributes;
+        attribute_list_container_t<ClusterTypes...> attributes;
         ClusterListType clusters;
-        zb::EPDesc<i, ClusterListType> ep;
+        zb::ep_desc_t<i, ClusterListType> ep;
     };
     //template<class... Clusters>
-    //EPDescSelfContained(ep_args_t<Clusters...>) -> EPDescSelfContained<Clusters...>;
+    //ep_desc_self_contained_t(ep_args_t<Clusters...>) -> ep_desc_self_contained_t<Clusters...>;
 
     template<class T>
-    concept IsEPDescSelfContained = requires(T t) {
+    concept is_ep_desc_self_contained_c = requires(T t) {
         typename T::ClusterListType;
         t.ep;
         t.clusters;
@@ -97,7 +97,7 @@ namespace zb
     struct ep_tag_t{};
 
     template<class EP>
-    struct EPContainerMem
+    struct ep_container_mem_t
     {
         EP m;
 
@@ -106,34 +106,34 @@ namespace zb
     };
 
     template<class... EPs>
-    struct EPListContainer: EPContainerMem<EPs>... 
-    { 
-        using EPContainerMem<EPs>::get...; 
+    struct ep_list_container_t: ep_container_mem_t<EPs>...
+    {
+        using ep_container_mem_t<EPs>::get...;
 
         template<zb_uint8_t dummy>
         constexpr auto get(ep_tag_t<dummy>) { static_assert(sizeof(ep_tag_t<dummy>) == 0, "EP not found"); }
     };
 
     template<class T>
-    struct EPDescTypeFromArg;
+    struct ep_desc_type_from_arg_t;
 
-    template<EPBaseInfo i, class... Clusters>
-    struct EPDescTypeFromArg<ep_args_t<i, Clusters...>>
+    template<ep_base_info_t i, class... Clusters>
+    struct ep_desc_type_from_arg_t<ep_args_t<i, Clusters...>>
     {
-        using type = EPDescSelfContained<i, Clusters...>;
+        using type = ep_desc_self_contained_t<i, Clusters...>;
     };
 
     template<class T>
-    using EPDescTypeFromArgT = EPDescTypeFromArg<T>::type;
+    using ep_desc_type_from_arg_t_type = ep_desc_type_from_arg_t<T>::type;
 
-    template<class... EPSelfContainedTypes>//see EPDescSelfContained<...>, EPDesc<...>
-    struct DeviceFull
+    template<class... EPSelfContainedTypes>//see ep_desc_self_contained_t<...>, ep_desc_t<...>
+    struct device_full_t
     {
         static_assert(ep_tools::kAllUniqueIds<EPSelfContainedTypes...>, "All EP ids must be unique!");
         static constexpr size_t N = sizeof...(EPSelfContainedTypes);
 
         template<class... EPArgs>
-        constexpr DeviceFull(EPArgs..._eps):
+        constexpr device_full_t(EPArgs..._eps):
             eps{_eps...},
             endpoints{&eps.get(mem_tag_t<EPSelfContainedTypes>{}).ep.ep...},
             ctx{.ep_count = N, .ep_desc_list = endpoints}
@@ -148,12 +148,12 @@ namespace zb
 
         operator zb_af_device_ctx_t*() { return &ctx; }
 
-        EPListContainer<EPSelfContainedTypes...> eps;
+        ep_list_container_t<EPSelfContainedTypes...> eps;
         zb_af_endpoint_desc_t *endpoints[N];
         zb_af_device_ctx_t ctx;
     };
 
     template<class... EPArgs>
-    DeviceFull(EPArgs...) -> DeviceFull<EPDescTypeFromArgT<EPArgs>...>;
+    device_full_t(EPArgs...) -> device_full_t<ep_desc_type_from_arg_t_type<EPArgs>...>;
 }
 #endif

@@ -156,9 +156,9 @@ namespace zb
             return cluster_t<
                 cluster_info_t{.id = kZB_ZCL_CLUSTER_ID_OCCUPANCY_SENSING},
                 attributes_t<
-                    attribute_t{.m = &T::occupancy,        .id = 0x0000, .a=Access::RP, .type=Type::Map8},
-                    attribute_t{.m = &T::sensor_type,      .id = 0x0001, .a=Access::Read},
-                    attribute_t{.m = &T::type_bitmap_raw,  .id = 0x0002, .a=Access::Read, .type=Type::Map8}
+                    attribute_t{.m = &T::occupancy,        .id = 0x0000, .a=access_t::RP, .type=type_t::Map8},
+                    attribute_t{.m = &T::sensor_type,      .id = 0x0001, .a=access_t::Read},
+                    attribute_t{.m = &T::type_bitmap_raw,  .id = 0x0002, .a=access_t::Read, .type=type_t::Map8}
                 >{}
             >{};
         }
@@ -171,9 +171,9 @@ namespace zb
             return cluster_t<
                 cluster_info_t{.id = kZB_ZCL_CLUSTER_ID_OCCUPANCY_SENSING},
                 attributes_t<
-                    attribute_t{.m = &T::PIROccupiedToUnoccupiedDelay,      .id = 0x0010, .a=Access::RW},
-                    attribute_t{.m = &T::PIRUnoccupiedToOccupiedDelay,      .id = 0x0011, .a=Access::RW},
-                    attribute_t{.m = &T::PIRUnoccupiedToOccupiedThreshold,  .id = 0x0012, .a=Access::RW}
+                    attribute_t{.m = &T::PIROccupiedToUnoccupiedDelay,      .id = 0x0010, .a=access_t::RW},
+                    attribute_t{.m = &T::PIRUnoccupiedToOccupiedDelay,      .id = 0x0011, .a=access_t::RW},
+                    attribute_t{.m = &T::PIRUnoccupiedToOccupiedThreshold,  .id = 0x0012, .a=access_t::RW}
                 >{}
             >{};
         }
@@ -186,9 +186,9 @@ namespace zb
             return cluster_t<
                 cluster_info_t{.id = kZB_ZCL_CLUSTER_ID_OCCUPANCY_SENSING},
                 attributes_t<
-                    attribute_t{.m = &T::UltrasonicOccupiedToUnoccupiedDelay,      .id = 0x0020, .a=Access::RW},
-                    attribute_t{.m = &T::UltrasonicUnoccupiedToOccupiedDelay,      .id = 0x0021, .a=Access::RW},
-                    attribute_t{.m = &T::UltrasonicUnoccupiedToOccupiedThreshold,  .id = 0x0022, .a=Access::RW}
+                    attribute_t{.m = &T::UltrasonicOccupiedToUnoccupiedDelay,      .id = 0x0020, .a=access_t::RW},
+                    attribute_t{.m = &T::UltrasonicUnoccupiedToOccupiedDelay,      .id = 0x0021, .a=access_t::RW},
+                    attribute_t{.m = &T::UltrasonicUnoccupiedToOccupiedThreshold,  .id = 0x0022, .a=access_t::RW}
                 >{}
             >{};
         }
@@ -201,9 +201,9 @@ namespace zb
             return cluster_t<
                 cluster_info_t{.id = kZB_ZCL_CLUSTER_ID_OCCUPANCY_SENSING},
                 attributes_t<
-                    attribute_t{.m = &T::PhysicalContactOccupiedToUnoccupiedDelay,      .id = 0x0030, .a=Access::RW},
-                    attribute_t{.m = &T::PhysicalContactUnoccupiedToOccupiedDelay,      .id = 0x0031, .a=Access::RW},
-                    attribute_t{.m = &T::PhysicalContactUnoccupiedToOccupiedThreshold,  .id = 0x0032, .a=Access::RW}
+                    attribute_t{.m = &T::PhysicalContactOccupiedToUnoccupiedDelay,      .id = 0x0030, .a=access_t::RW},
+                    attribute_t{.m = &T::PhysicalContactUnoccupiedToOccupiedDelay,      .id = 0x0031, .a=access_t::RW},
+                    attribute_t{.m = &T::PhysicalContactUnoccupiedToOccupiedThreshold,  .id = 0x0032, .a=access_t::RW}
                 >{}
             >{};
         }

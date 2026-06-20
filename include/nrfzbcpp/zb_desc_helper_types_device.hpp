@@ -8,8 +8,8 @@ namespace zb
     template<size_t N>
     struct Device
     {
-        template<EPBaseInfo... i, class... Clusters> requires (sizeof...(Clusters) == N)
-        constexpr Device(EPDesc<i, Clusters>&...eps):
+        template<ep_base_info_t... i, class... Clusters> requires (sizeof...(Clusters) == N)
+        constexpr Device(ep_desc_t<i, Clusters>&...eps):
             endpoints{&eps.ep...},
             ctx{.ep_count = N, .ep_desc_list = endpoints}
         {
@@ -21,7 +21,7 @@ namespace zb
         zb_af_device_ctx_t ctx;
     };
 
-    template<EPBaseInfo... i, class... Clusters>
-    Device(EPDesc<i, Clusters>&...eps) -> Device<sizeof...(Clusters)>;
+    template<ep_base_info_t... i, class... Clusters>
+    Device(ep_desc_t<i, Clusters>&...eps) -> Device<sizeof...(Clusters)>;
 }
 #endif

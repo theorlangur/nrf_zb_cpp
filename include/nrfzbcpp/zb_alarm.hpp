@@ -15,7 +15,7 @@
 
 namespace zb
 {
-    struct ZbAlarm
+    struct zb_alarm_t
     {
         static constexpr uint8_t kCounterOfDeathInactive = 0xff;
         static constexpr uint8_t kCounterOfDeathValue = 6;
@@ -24,7 +24,7 @@ namespace zb
         static bool g_RunningOutOfHandles;
         static uint8_t g_CounterOfDeath;
 
-        struct TimerList
+        struct timer_list_t
         {
             static constexpr uint8_t kFull = 9;
             static constexpr uint8_t kMaxSize = kFull - 1;
@@ -32,27 +32,27 @@ namespace zb
             using handle_t = uint8_t;
             static constexpr handle_t kInvalidHandle = kFull;
 
-            struct TimerEntry
+            struct timer_entry_t
             {
-                ZbAlarm *pAlarm;
+                zb_alarm_t *pAlarm;
                 void* cb;
                 void *param;
             };
 
-            struct HandleEntry
+            struct handle_entry_t
             {
-                TimerEntry &entry;
+                timer_entry_t &entry;
                 handle_t h;
             };
 
-            std::optional<HandleEntry> Allocate()
+            std::optional<handle_entry_t> Allocate()
             {
                 thread::LockGuard l(&g_AlarmLock);
                 if (head != kFull)
                 {
                     auto r = head;
                     head = entries[head].nextFree;
-                    return HandleEntry{entries[r].entry, r};
+                    return handle_entry_t{entries[r].entry, r};
                 }
                 return std::nullopt;
             }
@@ -66,9 +66,9 @@ namespace zb
 
             auto& GetEntry(handle_t h) { return entries[h].entry; }
 
-            static constexpr TimerList Create()
+            static constexpr timer_list_t Create()
             {
-                TimerList r;
+                timer_list_t r;
                 r.head = 0;
                 for(size_t i = 0; i < kMaxSize; ++i)
                 {
@@ -81,40 +81,40 @@ namespace zb
 
         private:
 
-            union ListEntry
+            union list_entry_t
             {
                 uint8_t nextFree;
-                TimerEntry entry;
+                timer_entry_t entry;
             };
             handle_t head;
-            ListEntry entries[kMaxSize];
+            list_entry_t entries[kMaxSize];
 
             static ALARM_LIST_LOCK_TYPE g_AlarmLock;
         };
-        constinit static TimerList g_TimerList;
+        constinit static timer_list_t g_TimerList;
 
         using callback_t = void(*)(void*);
 
-        static void on_alarm(TimerList::TimerEntry const& e)
+        static void on_alarm(timer_list_t::timer_entry_t const& e)
         {
             ((callback_t)e.cb)(e.param);
         }
 
-        template<auto CB = ZbAlarm::on_alarm>
+        template<auto CB = zb_alarm_t::on_alarm>
         static void on_scheduled_alarm(uint8_t param)
         {
             auto e = g_TimerList.GetEntry(param);
             g_TimerList.Free(e.pAlarm->h);
-            e.pAlarm->h = TimerList::kInvalidHandle;
+            e.pAlarm->h = timer_list_t::kInvalidHandle;
             CB(e);
         }
 
         const char *pDescr = nullptr;
-        TimerList::handle_t h = TimerList::kInvalidHandle;
+        timer_list_t::handle_t h = timer_list_t::kInvalidHandle;
 
-        ~ZbAlarm() { Cancel(); }
+        ~zb_alarm_t() { Cancel(); }
 
-        bool IsRunning() const { return h != TimerList::kInvalidHandle; }
+        bool IsRunning() const { return h != timer_list_t::kInvalidHandle; }
         void Cancel() { Cancel<on_alarm>(); }
         zb_ret_t Setup(callback_t cb, void *param, uint32_t time) { return Setup<callback_t, on_alarm>(cb, param, time); }
 
@@ -127,7 +127,7 @@ namespace zb
             {
                 zb_schedule_alarm_cancel(on_scheduled_alarm<CB>, h, nullptr);
                 g_TimerList.Free(h);
-                h = TimerList::kInvalidHandle;
+                h = timer_list_t::kInvalidHandle;
             }
         }
 
@@ -183,30 +183,30 @@ namespace zb
                     sys_reboot(SYS_REBOOT_WARM);
                     return;
                 }
-                FMT_PRINT("Low on handles: tick-tock: {} iterations left\n", ZbAlarm::g_CounterOfDeath);
+                FMT_PRINT("Low on handles: tick-tock: {} iterations left\n", zb_alarm_t::g_CounterOfDeath);
             }
         }
     };
 
-    inline bool ZbAlarm::g_RunningOutOfHandles = false;
-    inline uint8_t ZbAlarm::g_CounterOfDeath = kCounterOfDeathInactive;
-    inline ALARM_LIST_LOCK_TYPE ZbAlarm::TimerList::g_AlarmLock;
-    inline constinit ZbAlarm::TimerList ZbAlarm::g_TimerList = ZbAlarm::TimerList::Create();
+    inline bool zb_alarm_t::g_RunningOutOfHandles = false;
+    inline uint8_t zb_alarm_t::g_CounterOfDeath = kCounterOfDeathInactive;
+    inline ALARM_LIST_LOCK_TYPE zb_alarm_t::timer_list_t::g_AlarmLock;
+    inline constinit zb_alarm_t::timer_list_t zb_alarm_t::g_TimerList = zb_alarm_t::timer_list_t::Create();
 
-    struct ZbTimer: ZbAlarm
+    struct zb_timer_t: zb_alarm_t
     {
         //return 'true' if timer should go on, false - if timer should stop
         using callback_t = bool (*)(void* param);
 
         uint32_t m_Interval = 0;
 
-        ~ZbTimer() { Cancel(); }
+        ~zb_timer_t() { Cancel(); }
 
-        static void on_timer(TimerList::TimerEntry const& e)
+        static void on_timer(timer_list_t::timer_entry_t const& e)
         {
             if (callback_t(e.cb)(e.param))
             {
-                ZbTimer *pT = static_cast<ZbTimer*>(e.pAlarm);
+                zb_timer_t *pT = static_cast<zb_timer_t*>(e.pAlarm);
                 //re-schedule
                 auto res = pT->Setup(callback_t(e.cb), e.param, pT->m_Interval);
                 if (res != RET_OK)
@@ -216,17 +216,17 @@ namespace zb
             }
         }
 
-        void Cancel() { ZbAlarm::Cancel<on_timer>(); }
+        void Cancel() { zb_alarm_t::Cancel<on_timer>(); }
 
         zb_ret_t Setup(callback_t cb, void *param, uint32_t time)
         {
             m_Interval = time;
-            return ZbAlarm::Setup<callback_t, on_timer>(cb, param, time);
+            return zb_alarm_t::Setup<callback_t, on_timer>(cb, param, time);
         }
     };
 
     template<size_t FuncSZ = 16>
-    struct ZbTimerExt: ZbTimer
+    struct zb_timer_ext_t: zb_timer_t
     {
         using generic_callback_t = FixedFunction<FuncSZ, bool()>;
         generic_callback_t m_Callback;
@@ -237,13 +237,13 @@ namespace zb
         zb_ret_t Setup(callback_t &&cb, uint32_t time)
         {
             m_Callback = std::forward<callback_t>(cb);
-            return ZbTimer::Setup(on_timer_ext, &m_Callback, time);
+            return zb_timer_t::Setup(on_timer_ext, &m_Callback, time);
         }
     };
-    using ZbTimerExt16 = ZbTimerExt<16>;
+    using zb_timer_ext_16_t = zb_timer_ext_t<16>;
 
     template<size_t FuncSZ = 16>
-    struct ZbAlarmExt: ZbAlarm
+    struct zb_alarm_ext_t: zb_alarm_t
     {
         using generic_callback_t = FixedFunction<FuncSZ, void()>;
         generic_callback_t m_Callback;
@@ -254,9 +254,11 @@ namespace zb
         zb_ret_t Setup(callback_t &&cb, uint32_t time)
         {
             m_Callback = std::forward<callback_t>(cb);
-            return ZbAlarm::Setup(on_timer_ext, &m_Callback, time);
+            return zb_alarm_t::Setup(on_timer_ext, &m_Callback, time);
         }
     };
-    using ZbAlarmExt16 = ZbAlarmExt<16>;
+    using zb_alarm_ext_16_t = zb_alarm_ext_t<16>;
+
+ 
 }
 #endif

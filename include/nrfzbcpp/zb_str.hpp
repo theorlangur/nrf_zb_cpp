@@ -8,7 +8,7 @@
 
 namespace zb
 {
-    struct ZigbeeStrView
+    struct zigbee_str_view_t
     {
         char *pStr;
 
@@ -17,7 +17,7 @@ namespace zb
         std::string_view sv() const { return {pStr + 1, pStr[0]}; }
     };
 
-    struct ZigbeeStrRef
+    struct zigbee_str_ref_t
     {
         using __1byte_var_len = void;
         char sz;
@@ -28,12 +28,12 @@ namespace zb
     };
 
     template<size_t N>
-    struct ZigbeeStrBuf: public ZigbeeStrRef
+    struct zigbee_str_buf_t: public zigbee_str_ref_t
     {
         char data[N];
     };
 
-    struct ZigbeeOctetRef
+    struct zigbee_octet_ref_t
     {
         using __1byte_var_len = void;
         uint8_t sz;
@@ -44,30 +44,30 @@ namespace zb
     };
 
     template<size_t N>
-    struct ZigbeeOctetBuf: public ZigbeeOctetRef
+    struct zigbee_octet_buf_t: public zigbee_octet_ref_t
     {
         uint8_t data[N];
     };
 
     template<size_t N>
-    struct ZigbeeStr
+    struct zigbee_str_t
     {
         using __1byte_var_len = void;
         char name[N];
 
         template<size_t M, size_t...idx>
-        constexpr ZigbeeStr(std::index_sequence<idx...>, const char (&n)[M]):
+        constexpr zigbee_str_t(std::index_sequence<idx...>, const char (&n)[M]):
             name{ M-1, n[idx]... }
         {
         }
 
         template<size_t M>
-        constexpr ZigbeeStr(const char (&n)[M]):
-            ZigbeeStr(std::make_index_sequence<M-1>(), n)
+        constexpr zigbee_str_t(const char (&n)[M]):
+            zigbee_str_t(std::make_index_sequence<M-1>(), n)
         {
         }
 
-        constexpr ZigbeeStr():
+        constexpr zigbee_str_t():
             name{0}
         {
         }
@@ -76,11 +76,11 @@ namespace zb
         size_t capacity() const { return N - 1; }
         size_t size() const { return *name; }
         std::string_view sv() const { return {name + 1, size()}; }
-        ZigbeeStrView zsv() const { return {name}; }
-        ZigbeeStrRef& zsv_ref() { return *(ZigbeeStrRef*)name; }
+        zigbee_str_view_t zsv() const { return {name}; }
+        zigbee_str_ref_t& zsv_ref() { return *(zigbee_str_ref_t*)name; }
 
         template<size_t M>
-        ZigbeeStr<N>& operator=(const char (&n)[M])
+        zigbee_str_t<N>& operator=(const char (&n)[M])
         {
             static_assert(M <= N, "String literal is too big");
             name[0] = M - 1;
@@ -88,39 +88,39 @@ namespace zb
             return *this;
         }
 
-        static constexpr Type TypeId() { return Type::CharStr; }
+        static constexpr type_t TypeId() { return type_t::CharStr; }
         static bool TypeValidator(uint8_t *value) { return *value < N; }
     };
 
     template<size_t N>
-    struct ZigbeeBin
+    struct zigbee_bin_t
     {
         using __1byte_var_len = void;
         uint8_t data[N];
 
         template<class T, size_t M, size_t...idx>
-        constexpr ZigbeeBin(std::index_sequence<idx...>, std::array<T, M> const &n):
+        constexpr zigbee_bin_t(std::index_sequence<idx...>, std::array<T, M> const &n):
             data{ M-1, n[idx]... }
         {
         }
 
         template<class T, size_t M>
-        constexpr ZigbeeBin(std::array<T, M> const& n):
-            ZigbeeBin(std::make_index_sequence<M-1>(), n)
+        constexpr zigbee_bin_t(std::array<T, M> const& n):
+            zigbee_bin_t(std::make_index_sequence<M-1>(), n)
         {
         }
 
-        constexpr ZigbeeBin():
+        constexpr zigbee_bin_t():
             data{0}
         {
         }
 
         operator void*() { return data; }
         size_t size() const { return N - 1; }
-        std::span<const uint8_t> sv() const { return {data + 1, N - 1}; }
+       std::span<const uint8_t> sv() const { return {data + 1, N - 1}; }
 
         template<size_t M>
-        ZigbeeBin<N>& operator=(std::array<uint8_t, M> const& n)
+        zigbee_bin_t<N>& operator=(std::array<uint8_t, M> const& n)
         {
             static_assert(M <= N, "String literal is too big");
             data[0] = M - 1;
@@ -128,20 +128,20 @@ namespace zb
             return *this;
         }
 
-        static constexpr Type TypeId() { return Type::OctetStr; }
+        static constexpr type_t TypeId() { return type_t::OctetStr; }
         static bool TypeValidator(uint8_t *value) { return *value < N; }
     };
 
     template<class T, size_t N> requires (std::is_trivially_copyable_v<T>
             && std::is_trivially_constructible_v<T>)
-    struct [[gnu::packed]] ZigbeeBinTypedArray
+    struct [[gnu::packed]] zigbee_bin_typed_array_t
     {
         using __1byte_var_len = void;
         uint8_t len_bytes;
         T data[N];
 
         template<size_t M, size_t...idx>
-        constexpr ZigbeeBinTypedArray(std::index_sequence<idx...>, std::array<T, M> const &n):
+        constexpr zigbee_bin_typed_array_t(std::index_sequence<idx...>, std::array<T, M> const &n):
             len_bytes{sizeof(T) * M},
             data{ n[idx]... }
         {
@@ -149,12 +149,12 @@ namespace zb
         }
 
         template<size_t M>
-        constexpr ZigbeeBinTypedArray(std::array<T, M> const& n):
-            ZigbeeBinTypedArray(std::make_index_sequence<M>(), n)
+        constexpr zigbee_bin_typed_array_t(std::array<T, M> const& n):
+            zigbee_bin_typed_array_t(std::make_index_sequence<M>(), n)
         {
         }
 
-        constexpr ZigbeeBinTypedArray():
+        constexpr zigbee_bin_typed_array_t():
             len_bytes{0}
             , data{}
         {
@@ -170,7 +170,7 @@ namespace zb
         template<class Me>
         auto& operator[](this Me const& t, size_t i) { return t.data[i]; }
 
-        static constexpr Type TypeId() { return Type::OctetStr; }
+        static constexpr type_t TypeId() { return type_t::OctetStr; }
         static bool TypeValidator(uint8_t *value) 
         {
             return (*value <= size_bytes()) && (*value % sizeof(T) == 0); 
@@ -179,13 +179,13 @@ namespace zb
 
     template<class T> requires (std::is_trivially_copyable_v<T>
             && sizeof(T) <= 255)
-    struct [[gnu::packed]] ZigbeeBinTyped
+    struct [[gnu::packed]] zigbee_bin_typed_t
     {
         using __1byte_var_len = void;
         uint8_t len_bytes;
         T data;
 
-        constexpr ZigbeeBinTyped(T d = {}):
+        constexpr zigbee_bin_typed_t(T d = {}):
             len_bytes{sizeof(T)}
             , data{d}
         {
@@ -197,7 +197,7 @@ namespace zb
         operator T&() { return data; }
         operator const T&() const { return data; }
 
-        static constexpr Type TypeId() { return Type::OctetStr; }
+        static constexpr type_t TypeId() { return type_t::OctetStr; }
         static bool TypeValidator(uint8_t *value) 
         {
             return (*value == sizeof(T)) && ValidateCustomType((const T*)(value + 1));
@@ -206,12 +206,14 @@ namespace zb
 
 
     template<size_t N>
-    constexpr ZigbeeStr<N> ZbStr(const char (&n)[N])
+    constexpr zigbee_str_t<N> ZbStr(const char (&n)[N])
     {
         static_assert(N < 255, "String too long");
         return [&]<size_t...idx>(std::index_sequence<idx...>){
-            return ZigbeeStr<N>{.name={N-1, n[idx]...}};
+            return zigbee_str_t<N>{.name={N-1, n[idx]...}};
         }(std::make_index_sequence<N-1>());
     }
+
+
 }
 #endif

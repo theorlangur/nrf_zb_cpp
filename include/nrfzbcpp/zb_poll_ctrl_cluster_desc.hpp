@@ -47,11 +47,11 @@ namespace zb
             return cluster_t<
                 {.id = kZB_ZCL_CLUSTER_ID_POLL_CTRL},
                 attributes_t<
-                    attribute_t{.m = &T::check_in_interval,  .id = 0x0000, .a=Access::RW},
-                    attribute_t{.m = &T::long_poll_interval, .id = 0x0001, .a=Access::Read},
-                    attribute_t{.m = &T::short_poll_interval,.id = 0x0002, .a=Access::Read},
-                    attribute_t{.m = &T::fast_poll_timeout,  .id = 0x0003, .a=Access::RW},
-                    attribute_t{.m = &T::srv_cfg,  .id = 0xeffeU, .a=Access::Internal, .type=Type::Null}
+                    attribute_t{.m = &T::check_in_interval,  .id = 0x0000, .a=access_t::RW},
+                    attribute_t{.m = &T::long_poll_interval, .id = 0x0001, .a=access_t::Read},
+                    attribute_t{.m = &T::short_poll_interval,.id = 0x0002, .a=access_t::Read},
+                    attribute_t{.m = &T::fast_poll_timeout,  .id = 0x0003, .a=access_t::RW},
+                    attribute_t{.m = &T::srv_cfg,  .id = 0xeffeU, .a=access_t::Internal, .type=type_t::Null}
                 >{}
             >{};
         }
@@ -66,9 +66,9 @@ namespace zb
                 + cluster_t<
                 {.id = kZB_ZCL_CLUSTER_ID_POLL_CTRL},
                 attributes_t<
-                    attribute_t{.m = &T::check_in_interval_min, .id = 0x0004, .a=Access::Read},
-                    attribute_t{.m = &T::long_poll_interval_min,.id = 0x0005, .a=Access::Read},
-                    attribute_t{.m = &T::fast_poll_timeout_max, .id = 0x0006, .a=Access::Read}
+                    attribute_t{.m = &T::check_in_interval_min, .id = 0x0004, .a=access_t::Read},
+                    attribute_t{.m = &T::long_poll_interval_min,.id = 0x0005, .a=access_t::Read},
+                    attribute_t{.m = &T::fast_poll_timeout_max, .id = 0x0006, .a=access_t::Read}
                 >{}
             >{};
         }

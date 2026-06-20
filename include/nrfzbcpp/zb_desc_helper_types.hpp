@@ -6,10 +6,10 @@
 namespace zb
 {
     template<class T>
-    concept ZigbeeCluster = requires { T::clusters; T::server_cluster_count(); T::client_cluster_count(); };
+    concept zigbee_cluster_c = requires { T::clusters; T::server_cluster_count(); T::client_cluster_count(); };
 
     template<class T>
-    concept ZigbeeEPSelfContained = requires { typename T::ClusterListType; requires  ZigbeeCluster<typename T::ClusterListType>; };
+    concept zigbee_ep_self_contained_c = requires { typename T::ClusterListType; requires  zigbee_cluster_c<typename T::ClusterListType>; };
 
     //this template class is to be specialized for every cluster struct
     template<class zb_struct>
@@ -20,17 +20,17 @@ namespace zb
 
 
     template<class zb_struct>
-    concept ZigbeeClusterStruct = requires { requires !std::is_same_v<decltype(zb::zcl_description_t<zb_struct>::get()), std::false_type>; };
+    concept zigbee_cluster_struct_c = requires { requires !std::is_same_v<decltype(zb::zcl_description_t<zb_struct>::get()), std::false_type>; };
 
-    template<class T>//TAttributeList<...>
-    concept ZigbeeAttributeList = requires { typename T::Tag; requires ZigbeeClusterStruct<typename T::Tag>; };
+    template<class T>//attribute_list_t<...>
+    concept zigbee_attribute_list_c = requires { typename T::Tag; requires zigbee_cluster_struct_c<typename T::Tag>; };
 
     template<class ClusterTag, uint8_t ep>
     void generic_cluster_init();
 
     using attr_validator_t = bool(*)(uint8_t *value);
 
-#define DEFINE_ZBOSS_INIT_GETTER_FOR(ZCL_ID) static constexpr auto zboss_init_func(Role r) { return r == Role::Server ? ZCL_ID##_SERVER_ROLE_INIT : (r == Role::Client ? ZCL_ID##_CLIENT_ROLE_INIT : NULL); }
+#define DEFINE_ZBOSS_INIT_GETTER_FOR(ZCL_ID) static constexpr auto zboss_init_func(role_t r) { return r == role_t::Server ? ZCL_ID##_SERVER_ROLE_INIT : (r == role_t::Client ? ZCL_ID##_CLIENT_ROLE_INIT : NULL); }
 
 
     template<class MemPtr>
