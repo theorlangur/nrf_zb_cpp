@@ -56,12 +56,12 @@ namespace zb
         /* Value-based unique ID checker                                      */
         /**********************************************************************/
         template<template<auto V> class IdGetter, auto I>
-        concept ValidIdGetter = requires { IdGetter<I>::id(); };
+        concept valid_id_getter_c = requires { IdGetter<I>::id(); };
 
-        template<template<auto V> class IdGetter, auto I> requires ValidIdGetter<IdGetter, I>
+        template<template<auto V> class IdGetter, auto I> requires valid_id_getter_c<IdGetter, I>
         constexpr bool IsAllUniqueHelper(){ return true; }
 
-        template<template<auto V> class IdGetter, auto Prime, auto Secondary> requires (ValidIdGetter<IdGetter, Prime> && ValidIdGetter<IdGetter, Secondary>)
+        template<template<auto V> class IdGetter, auto Prime, auto Secondary> requires (valid_id_getter_c<IdGetter, Prime> && valid_id_getter_c<IdGetter, Secondary>)
         constexpr bool IsAllUniqueHelper(){ 
             static_assert(IdGetter<Prime>::id() != IdGetter<Secondary>::id());
             return IdGetter<Prime>::id() != IdGetter<Secondary>::id(); 
@@ -89,12 +89,12 @@ namespace zb
         /* Class-based unique ID checker                                      */
         /**********************************************************************/
         template<template<class> class IdGetterT, class I>
-        concept ValidIdGetterT = requires { IdGetterT<I>::id(); };
+        concept valid_id_type_getter_c = requires { IdGetterT<I>::id(); };
 
-        template<template<class> class IdGetterT, class I> requires ValidIdGetterT<IdGetterT, I>
+        template<template<class> class IdGetterT, class I> requires valid_id_type_getter_c<IdGetterT, I>
         constexpr bool IsAllUniqueHelperT(){ return true; }
 
-        template<template<class> class IdGetterT, class Prime, class Secondary> requires (ValidIdGetterT<IdGetterT, Prime> && ValidIdGetterT<IdGetterT, Secondary>)
+        template<template<class> class IdGetterT, class Prime, class Secondary> requires (valid_id_type_getter_c<IdGetterT, Prime> && valid_id_type_getter_c<IdGetterT, Secondary>)
         constexpr bool IsAllUniqueHelperT(){ 
             static_assert(IdGetterT<Prime>::id() != IdGetterT<Secondary>::id());
             return IdGetterT<Prime>::id() != IdGetterT<Secondary>::id(); 

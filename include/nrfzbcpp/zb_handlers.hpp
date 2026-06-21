@@ -14,7 +14,7 @@ namespace zb
     using dev_callback_handler_t = void(*)(zb_zcl_device_callback_param_t *);
     using err_callback_handler_t = void(*)(int err);
     using set_attr_value_handler_t = void (*)(zb_zcl_set_attr_value_param_t *p, zb_zcl_device_callback_param_t *pDevCBParam);
-    struct set_attr_val_gen_desc_t: EPClusterAttributeDesc_t
+    struct set_attr_val_gen_desc_t: ep_cluster_attribute_desc_t
     {
         set_attr_value_handler_t handler;
     };
@@ -236,7 +236,7 @@ namespace zb
     /**********************************************************************/
     /* NoReport callback                                                  */
     /**********************************************************************/
-    struct no_report_attr_handler_desc_t: EPClusterAttributeDesc_t
+    struct no_report_attr_handler_desc_t: ep_cluster_attribute_desc_t
     {
         zb_zcl_no_reporting_cb_t handler;
     };
@@ -266,7 +266,7 @@ namespace zb
     /**********************************************************************/
     /* Attribute report callback                                          */
     /**********************************************************************/
-    struct report_attr_handler_desc_t: EPClusterAttributeDesc_t
+    struct report_attr_handler_desc_t: ep_cluster_attribute_desc_t
     {
         zb_zcl_report_attr_cb_t handler;
     };

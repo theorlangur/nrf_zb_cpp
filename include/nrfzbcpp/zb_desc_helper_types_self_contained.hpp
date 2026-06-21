@@ -57,7 +57,7 @@ namespace zb
     template<ep_base_info_t i, zigbee_cluster_struct_c... ClusterTypes>
     struct ep_desc_self_contained_t
     {
-        using ClusterListType = zb::TClusterList<i.ep, to_attribute_list_type_t<ClusterTypes>...>;
+        using ClusterListType = zb::cluster_list_t<i.ep, to_attribute_list_type_t<ClusterTypes>...>;
 
         static constexpr zb_uint8_t ep_id() { return i.ep; }
 

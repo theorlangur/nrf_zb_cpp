@@ -385,7 +385,7 @@ namespace zb
     template<zb_uint8_t cmd_id, uint8_t pool_size, class... Args>
     struct cluster_std_cmd_desc_with_pool_size_t: cluster_cmd_desc_t<{.cmd_id = cmd_id, .pool_size = pool_size ? pool_size : cmd_cfg_t{}.pool_size}, Args...> {};
 
-    struct cmd_to_arg
+    struct cmd_to_arg_t
     {
         const uint8_t *pData;
         template<class A> requires (alignof(A) == 1)
@@ -422,7 +422,7 @@ namespace zb
             if (data.size() < kArgRawSize) return {RET_ILLEGAL_REQUEST, true};
 
             const uint8_t *pData = data.data();
-            cmd_to_arg to_arg{pData};
+            cmd_to_arg_t to_arg{pData};
             return pThis->cb(to_arg((Args*)nullptr)...);
         }
     };
@@ -637,15 +637,15 @@ namespace zb
     };
 
     template<uint8_t ep, class... T>
-    struct TClusterList
+    struct cluster_list_t
     {
         static_assert(cluster_tools::kAllClientClustersAtEnd<T...>, "Client (output) clusters must be grouped at the end!");
         static constexpr size_t N = sizeof...(T);
 
-        TClusterList(TClusterList const&) = delete;
-        TClusterList(TClusterList &&) = delete;
-        void operator=(TClusterList const&) = delete;
-        void operator=(TClusterList &&) = delete;
+        cluster_list_t(cluster_list_t const&) = delete;
+        cluster_list_t(cluster_list_t &&) = delete;
+        void operator=(cluster_list_t const&) = delete;
+        void operator=(cluster_list_t &&) = delete;
 
         static constexpr auto max_command_pool_size() 
         { 
@@ -663,7 +663,7 @@ namespace zb
         static constexpr size_t client_cluster_count() { return (T::is_role(role_t::Client) + ... + 0); }
         static constexpr bool has_info(cluster_info_t ci) { return ((T::info() == ci) || ...); }
 
-        constexpr TClusterList(T&... d):
+        constexpr cluster_list_t(T&... d):
             clusters{ d.template desc<ep>()... }
         {
         }

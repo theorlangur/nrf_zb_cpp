@@ -31,7 +31,7 @@ namespace zb
         zb_af_endpoint_desc_t &ep;
     };
 
-    struct EPClusterAttributeDesc_t
+    struct ep_cluster_attribute_desc_t
     {
         static constexpr uint16_t kANY_CLUSTER = 0xffff;
         static constexpr uint16_t kANY_ATTRIBUTE = 0xffff;
@@ -127,8 +127,8 @@ namespace zb
         static constexpr auto kCmdQueueSize = i.cmd_queue_depth ? i.cmd_queue_depth : Clusters::max_command_pool_size();
         static_assert(kCmdQueueSize >= Clusters::max_command_pool_size(), "It's not allowed to set the command queue size lower than max pool size among all commands");
 
-        template<class T1, class T2, class... T> requires std::is_same_v<TClusterList<i.ep, T1, T2, T...>, Clusters>
-        constexpr ep_desc_t(TClusterList<i.ep, T1, T2, T...> &clusters):
+        template<class T1, class T2, class... T> requires std::is_same_v<cluster_list_t<i.ep, T1, T2, T...>, Clusters>
+        constexpr ep_desc_t(cluster_list_t<i.ep, T1, T2, T...> &clusters):
             simple_desc{ 
                 {
                     .endpoint = i.ep, 
@@ -162,8 +162,8 @@ namespace zb
         {
         }
 
-        template<class T1, class... T> requires (std::is_same_v<TClusterList<i.ep, T1, T...>, Clusters> && (Clusters::server_cluster_count() + Clusters::client_cluster_count() < 2))
-        constexpr ep_desc_t(TClusterList<i.ep, T1, T...> &clusters):
+        template<class T1, class... T> requires (std::is_same_v<cluster_list_t<i.ep, T1, T...>, Clusters> && (Clusters::server_cluster_count() + Clusters::client_cluster_count() < 2))
+        constexpr ep_desc_t(cluster_list_t<i.ep, T1, T...> &clusters):
             simple_desc{ 
                 {
                     .endpoint = i.ep, 
@@ -398,7 +398,7 @@ namespace zb
         }
 
         template<auto memPtr>
-        constexpr EPClusterAttributeDesc_t attribute_desc()
+        constexpr ep_cluster_attribute_desc_t attribute_desc()
         {
             using MemPtrType = decltype(memPtr);
             static_assert(mem_ptr_traits<MemPtrType>::is_mem_ptr, "Only member pointer is allowed");
@@ -411,7 +411,7 @@ namespace zb
         }
 
         template<class Cluster>
-        constexpr EPClusterAttributeDesc_t cluster_desc()
+        constexpr ep_cluster_attribute_desc_t cluster_desc()
         {
             using ClusterDescType = decltype(zcl_description_t<Cluster>::get());
             static_assert(Clusters::has_info(ClusterDescType::info()), "Requested cluster is not part of the EP");
