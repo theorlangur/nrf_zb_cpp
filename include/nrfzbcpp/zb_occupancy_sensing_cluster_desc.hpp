@@ -61,7 +61,7 @@ namespace zb
 
     namespace occupancy_details{
         template<class T>
-        concept ValidOccupancyCfg = std::is_same_v<T, zb_zcl_cfg_pir_t> 
+        concept valid_occupancy_cfg_c = std::is_same_v<T, zb_zcl_cfg_pir_t> 
                                  || std::is_same_v<T, zb_zcl_cfg_ultrasonic_t> 
                                  || std::is_same_v<T, zb_zcl_cfg_physical_contact_t>;
 
@@ -86,7 +86,7 @@ namespace zb
         template<class... Cfg>
         constexpr bool kAllUnique = IsAllUniquePrimaryHelper<Cfg...>();
 
-        template<ValidOccupancyCfg Cfg>
+        template<valid_occupancy_cfg_c Cfg>
         constexpr uint8_t get_occupancy_type_bitmask()
         {
             if constexpr (std::is_same_v<Cfg, zb_zcl_cfg_pir_t>)
@@ -128,7 +128,7 @@ namespace zb
             (sizeof...(Cfg) <= 3)                                  //max 3 types of sensors types supported
             && (sizeof...(Cfg) >= 1)                               //makes sense to use this template only if you need at least 1 configuration
             && occupancy_details::kAllUnique<Cfg...>               //all configuration should be unique
-            && (occupancy_details::ValidOccupancyCfg<Cfg> && ...)) //may be only of 3 types: PIR, Ultrasonic, PhysicalContact
+            && (occupancy_details::valid_occupancy_cfg_c<Cfg> && ...)) //may be only of 3 types: PIR, Ultrasonic, PhysicalContact
     struct zb_zcl_occupancy_tpl_t: zb_zcl_occupancy_t, Cfg...
     {
         static constexpr uint8_t kTypeBitMask = (occupancy_details::get_occupancy_type_bitmask<Cfg>() | ...);
