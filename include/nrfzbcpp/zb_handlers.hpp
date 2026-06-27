@@ -103,19 +103,19 @@ namespace zb
     template<class T, typed_set_handler_v1_t<T> F>
     struct typed_set_attr_value_handler_t<F>: internals::set_attr_v1<T, F> {};
 
-    template<class T, typed_set_handler_v1_t_copy<T> F>
+    template<class T, typed_set_handler_v1_t_copy<T> F> requires (!std::is_reference_v<T>)
     struct typed_set_attr_value_handler_t<F>: internals::set_attr_v1<T, F> {};
 
     template<class T, typed_set_handler_v2_t<T> F>
     struct typed_set_attr_value_handler_t<F>: internals::set_attr_v2<T, F> {};
 
-    template<class T, typed_set_handler_v2_t_copy<T> F>
+    template<class T, typed_set_handler_v2_t_copy<T> F> requires (!std::is_reference_v<T>)
     struct typed_set_attr_value_handler_t<F>: internals::set_attr_v2<T, F> {};
 
     template<class T, typed_set_handler_v3_t<T> F>
     struct typed_set_attr_value_handler_t<F>: internals::set_attr_v3<T, F> {};
 
-    template<class T, typed_set_handler_v3_t_copy<T> F>
+    template<class T, typed_set_handler_v3_t_copy<T> F> requires (!std::is_reference_v<T>)
     struct typed_set_attr_value_handler_t<F>: internals::set_attr_v3<T, F> {};
 
     template<typed_set_handler_v4_t F>
