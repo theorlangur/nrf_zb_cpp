@@ -9,12 +9,10 @@
 #include <nrf_general/libz_thread_lock.hpp>
 #include "zboss_api_core.h"
 
-#ifndef ALARM_LIST_LOCK_TYPE
-#define ALARM_LIST_LOCK_TYPE thread::SpinLock
-#endif
 
 namespace zb
 {
+    using ALARM_LIST_LOCK_TYPE = thread::SpinLock;
     struct zb_alarm_t
     {
         static constexpr uint8_t kCounterOfDeathInactive = 0xff;
