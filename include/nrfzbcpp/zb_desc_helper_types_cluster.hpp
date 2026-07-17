@@ -594,6 +594,11 @@ namespace zb
     template<class ClusterType>
     constexpr zb_uint16_t cluster_id_v = zb::zcl_description_t<ClusterType>::get().info().id;
 
+    template<class ClusterType>
+    constexpr uint32_t cluster_id_and_role_v = 
+        (uint32_t)zb::zcl_description_t<ClusterType>::get().info().id
+        | ((uint32_t)zb::zcl_description_t<ClusterType>::get().info().role) << 16;
+
     template<class T, class DestT, class MemType> requires std::is_base_of_v<DestT, T>
     constexpr attribute_desc_t<MemType> attribute_declaration_to_real_attribute_description(T& s, attribute_mem_desc_t<DestT,MemType> d) { return {.id = d.id, .a = d.a, .pData = &(s.*d.m), .type = d.type}; }
 
@@ -609,7 +614,7 @@ namespace zb
     namespace cluster_tools
     {
         template<class X>
-        struct ClusterIdGetter { static constexpr auto id() { return cluster_id_v<X>; } };
+        struct ClusterIdGetter { static constexpr auto id() { return cluster_id_and_role_v<X>; } };
 
         template<class... Clusters>
         constexpr bool kAllUniqueIds = tpl_tools::kAllUniqueIdsT<ClusterIdGetter, Clusters...>;

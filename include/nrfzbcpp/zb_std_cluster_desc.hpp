@@ -41,6 +41,7 @@ struct zb_zcl_on_off_attrs_client_t
     [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_ON_OFF_OFF_ID, 3> off;
     [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_ON_OFF_ON_ID, 3> on;
     [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_ON_OFF_ON_WITH_TIMED_OFF_ID, 3, uint8_t, uint16_t, uint16_t> on_with_timed_off;
+    [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_ON_OFF_TOGGLE_ID, 3> toggle;
 };
 
 template<> struct zcl_description_t<zb_zcl_basic_min_t> {
@@ -104,6 +105,21 @@ template<> struct zcl_description_t<zb_zcl_basic_attrs_ext_t> {
     DEFINE_ZBOSS_INIT_GETTER_FOR(ZB_ZCL_CLUSTER_ID_BASIC);
 };
 
+struct zb_zcl_identify_attrs_client_t
+{
+    enum effect_id: uint8_t
+    {
+	Blink = 0x00, Breathe = 0x01, Okay=0x02, ChannelChange=0x0b, FinishEffect=0xfe, StopEffect=0xff
+    };
+    enum effect_variant: uint8_t
+    {
+	Default = 0x00
+    };
+    [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_IDENTIFY_IDENTIFY_ID, 1, uint16_t> identify;
+    [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_IDENTIFY_IDENTIFY_QUERY_ID, 1> indentify_query;
+    [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_IDENTIFY_TRIGGER_EFFECT_ID, 1, effect_id, effect_variant> trigger_effect;
+};
+
 template<> struct zcl_description_t<zb_zcl_identify_attrs_t> {
     static constexpr auto get()
     {
@@ -113,6 +129,23 @@ template<> struct zcl_description_t<zb_zcl_identify_attrs_t> {
 	    attributes_t<
 		attribute_t{.m = &T::identify_time, .id = ZB_ZCL_ATTR_IDENTIFY_IDENTIFY_TIME_ID, .a = access_t::RW}
 	>{}
+	>{};
+    }
+    DEFINE_ZBOSS_INIT_GETTER_FOR(ZB_ZCL_CLUSTER_ID_IDENTIFY);
+};
+
+template<> struct zcl_description_t<zb_zcl_identify_attrs_client_t> {
+    static constexpr auto get()
+    {
+	using T = zb_zcl_identify_attrs_client_t;
+	return cluster_t<
+	{.id = ZB_ZCL_CLUSTER_ID_IDENTIFY, .role = role_t::Client},
+	    attributes_t<>{},
+	    commands_t<
+		&T::identify
+		,&T::indentify_query
+		,&T::trigger_effect
+		>{}
 	>{};
     }
     DEFINE_ZBOSS_INIT_GETTER_FOR(ZB_ZCL_CLUSTER_ID_IDENTIFY);
@@ -142,6 +175,7 @@ template<> struct zcl_description_t<zb_zcl_on_off_attrs_client_t> {
 		&zb_zcl_on_off_attrs_client_t::on
 		,&zb_zcl_on_off_attrs_client_t::off
 		,&zb_zcl_on_off_attrs_client_t::on_with_timed_off
+		,&zb_zcl_on_off_attrs_client_t::toggle
 		>{}
 	>{};
     }
@@ -180,7 +214,8 @@ template<> struct zcl_description_t<zb_zcl_scenes_attrs_t> {
     DEFINE_ZBOSS_INIT_GETTER_FOR(ZB_ZCL_CLUSTER_ID_SCENES);
 };
 
-template<> struct zcl_description_t<zb_zcl_level_control_attrs_t> {
+
+    template<> struct zcl_description_t<zb_zcl_level_control_attrs_t> {
     static constexpr auto get()
     {
 	using T = zb_zcl_level_control_attrs_t;
@@ -194,6 +229,44 @@ template<> struct zcl_description_t<zb_zcl_level_control_attrs_t> {
     }
     DEFINE_ZBOSS_INIT_GETTER_FOR(ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL);
 };
+
+struct zb_zcl_level_control_attrs_client_t
+{
+    enum fade_mode_e: uint8_t{ Up = 0, Down = 1};
+    [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_LEVEL_CONTROL_MOVE_TO_LEVEL, 1, uint8_t, uint16_t, uint8_t, uint8_t> move_to_level;
+    [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_LEVEL_CONTROL_MOVE, 1, fade_mode_e, uint8_t, uint8_t, uint8_t> move;
+    [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_LEVEL_CONTROL_STEP, 1, fade_mode_e, uint8_t, uint16_t, uint8_t, uint8_t> step;
+    [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_LEVEL_CONTROL_STOP, 1, uint8_t, uint8_t> stop;
+    [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_LEVEL_CONTROL_MOVE_TO_LEVEL_WITH_ON_OFF, 1, uint8_t, uint16_t, uint8_t, uint8_t> move_to_level_with_on_off;
+    [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_LEVEL_CONTROL_MOVE_WITH_ON_OFF, 1, fade_mode_e, uint8_t, uint8_t, uint8_t> move_with_on_off;
+    [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_LEVEL_CONTROL_STEP_WITH_ON_OFF, 1, fade_mode_e, uint8_t, uint16_t, uint8_t, uint8_t> step_with_on_off;
+    [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_LEVEL_CONTROL_STOP_WITH_ON_OFF, 1, uint8_t, uint8_t> stop_with_on_off;
+    [[no_unique_address]]cmd_pool_t<ZB_ZCL_CMD_LEVEL_CONTROL_MOVE_TO_CLOSEST_FREQUENCY, 1, uint16_t> move_to_closest_freq;
+};
+
+    template<> struct zcl_description_t<zb_zcl_level_control_attrs_client_t> {
+    static constexpr auto get()
+    {
+	using T = zb_zcl_level_control_attrs_client_t;
+	return cluster_t<
+	{.id = ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL, .role = role_t::Client},
+	    attributes_t<>{},
+	    commands_t<
+		 &T::move_to_level
+		,&T::move
+		,&T::step
+		,&T::stop
+		,&T::move_to_level_with_on_off
+		,&T::move_with_on_off
+		,&T::step_with_on_off
+		,&T::stop_with_on_off
+		,&T::move_to_closest_freq
+		>{}
+	>{};
+    }
+    DEFINE_ZBOSS_INIT_GETTER_FOR(ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL);
+};
+
 
 }
 
