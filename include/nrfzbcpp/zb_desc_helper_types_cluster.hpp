@@ -172,6 +172,7 @@ namespace zb
         uint8_t dst_ep;
         addr_mode_t addr_mode;
         bool canceled;
+        std::span<uint8_t> args_raw;
     };
 
 
@@ -179,7 +180,6 @@ namespace zb
     struct request_runtime_args_raw_t: request_runtime_args_base_t
     {
         uint8_t raw[N];
-        std::span<uint8_t> args_raw;
 
         template<cmd_arg_c... T>
         request_runtime_args_raw_t(zb_callback_t cb, uint16_t short_a, uint8_t e, addr_mode_t _addr_mode, T const&... args):
@@ -234,22 +234,10 @@ namespace zb
     template<auto &p>
     using cmd_args_ret_t = std::optional<pool_idx_type_t<p>>;
 
-    //as NTTP to cluster description template type
-    template<cmd_cfg_t cfg, cmd_arg_c... Args>
-    struct cluster_cmd_desc_t
+
+    template<cmd_arg_c... Args>
+    struct cmd_prepare_t
     {
-        using typed_callback_t = void(*)(Args const&...);
-
-        static constexpr auto pool_size() { return cfg.pool_size; }
-        static constexpr auto total_arg_raw_size() { return total_serialize_limit<Args...>(); }
-        static constexpr bool is_generated() { return cfg.pool_size >= 1; }
-        static constexpr bool is_received() { return cfg.receive; }
-        static constexpr auto timeout_ms() { return cfg.timeout_ms; }
-
-        static constexpr uint8_t kCmdId = cfg.cmd_id;
-
-        [[no_unique_address]]conditional_var_t<typed_callback_t, cfg.receive> m_Callback{};
-
         template<auto &g_Pool> requires is_object_pool_obj_v<g_Pool>
         struct prepare_t
         {
@@ -290,7 +278,61 @@ namespace zb
                 return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
             }
         };
-            
+    };
+
+
+    inline void on_out_buf_ready_common(zb_bufid_t bufid, request_runtime_args_base_t *pArgs, uint16_t manu_code, uint16_t cluster_id, role_t role, uint8_t cmd_id, request_args_t r)
+    {
+        if (pArgs->canceled)
+        {
+            if (bufid != ZB_BUF_INVALID)
+                zb_buf_free(bufid);
+            return;
+        }
+
+        if (bufid == ZB_BUF_INVALID)
+        {
+            //out of mem?
+            if (pArgs->cb) pArgs->cb(0);
+            return;
+        }
+
+        frame_ctl_t f{.f{
+            .cluster_specific = true, 
+                .manufacture_specific = manu_code != ZB_ZCL_MANUF_CODE_INVALID
+                    , .direction = role == role_t::Client ? frame_direction_t::ToServer : frame_direction_t::ToClient
+                    , .disable_default_response = false
+        }};
+        ZB_ZCL_GET_SEQ_NUM();
+        uint8_t* ptr = (uint8_t*)zb_zcl_start_command_header(bufid, f.u8, manu_code, cmd_id, nullptr);
+        //buffer memory limit?
+        std::memcpy(ptr, pArgs->args_raw.data(), pArgs->args_raw.size());
+        ptr += pArgs->args_raw.size();
+        zb_ret_t ret = zb_zcl_finish_and_send_packet(bufid, ptr, &pArgs->dst_addr, (uint8_t)pArgs->addr_mode, pArgs->dst_ep, r.ep, r.profile_id, cluster_id, pArgs->cb);
+        if (RET_OK != ret && pArgs->cb)
+            pArgs->cb(0);
+        if (RET_OK != ret)
+            zb_buf_free(bufid);
+    }
+
+    //as NTTP to cluster description template type
+    template<cmd_cfg_t cfg, cmd_arg_c... Args>
+    struct cluster_cmd_desc_t
+    {
+        using typed_callback_t = void(*)(Args const&...);
+
+        static constexpr auto pool_size() { return cfg.pool_size; }
+        static constexpr auto total_arg_raw_size() { return total_serialize_limit<Args...>(); }
+        static constexpr bool is_generated() { return cfg.pool_size >= 1; }
+        static constexpr bool is_received() { return cfg.receive; }
+        static constexpr auto timeout_ms() { return cfg.timeout_ms; }
+
+        static constexpr uint8_t kCmdId = cfg.cmd_id;
+
+        [[no_unique_address]]conditional_var_t<typed_callback_t, cfg.receive> m_Callback{};
+
+        using cmd_prepare_t = cmd_prepare_t<Args...>;
+
         template<auto &g_Pool, cluster_info_t i, request_args_t r> requires is_object_pool_obj_v<g_Pool>
         static bool request(uint16_t argsPoolIdx)
         {
@@ -311,39 +353,10 @@ namespace zb
             using PoolType = std::remove_cvref_t<decltype(g_Pool)>;
             using RequestPtr = PoolType::template Ptr<g_Pool>;
             RequestPtr raii(pArgs);
-            if (pArgs->canceled)
-            {
-                if (bufid != ZB_BUF_INVALID)
-                    zb_buf_free(bufid);
-                return;
-            }
-
-            if (bufid == ZB_BUF_INVALID)
-            {
-                //out of mem?
-                if (pArgs->cb) pArgs->cb(0);
-                return;
-            }
-
-            constexpr uint16_t manu_code = i.manuf_code != ZB_ZCL_MANUF_CODE_INVALID ? i.manuf_code : cfg.manuf_code;
-
             static_assert(i.role == role_t::Client || i.role == role_t::Server);
-            frame_ctl_t f{.f{
-                .cluster_specific = true, 
-                .manufacture_specific = manu_code != ZB_ZCL_MANUF_CODE_INVALID
-                , .direction = i.role == role_t::Client ? frame_direction_t::ToServer : frame_direction_t::ToClient
-                , .disable_default_response = false
-            }};
-            ZB_ZCL_GET_SEQ_NUM();
-            uint8_t* ptr = (uint8_t*)zb_zcl_start_command_header(bufid, f.u8, manu_code, cfg.cmd_id, nullptr);
-            //buffer memory limit?
-            std::memcpy(ptr, pArgs->args_raw.data(), pArgs->args_raw.size());
-            ptr += pArgs->args_raw.size();
-            zb_ret_t ret = zb_zcl_finish_and_send_packet(bufid, ptr, &pArgs->dst_addr, (uint8_t)pArgs->addr_mode, pArgs->dst_ep, r.ep, r.profile_id, i.id, pArgs->cb);
-            if (RET_OK != ret && pArgs->cb)
-                pArgs->cb(0);
-            if (RET_OK != ret)
-                zb_buf_free(bufid);
+            constexpr uint16_t manu_code = i.manuf_code != ZB_ZCL_MANUF_CODE_INVALID ? i.manuf_code : cfg.manuf_code;
+            on_out_buf_ready_common(bufid, pArgs, manu_code, i.id, i.role, cfg.cmd_id, r);
+
         }
     };
 
@@ -663,7 +676,7 @@ namespace zb
 
         alignas(4) zb_zcl_cluster_desc_t clusters[N];
     };
-    
+
     struct additional_cluster_handlers_t
     {
         uint8_t ep;

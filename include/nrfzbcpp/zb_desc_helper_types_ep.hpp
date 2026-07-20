@@ -370,35 +370,35 @@ namespace zb
         [[nodiscard]] std::optional<cmd_id_t> send_cmd(Args&&...args)
         {
             using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
-            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, std::forward<Args>(args)...));
+            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::cmd_prepare_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, std::forward<Args>(args)...));
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         [[nodiscard]] std::optional<cmd_id_t> send_cmd(short_addr_t addr, Args&&...args)
         {
             using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
-            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, addr.short_addr, addr.ep, std::forward<Args>(args)...));
+            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::cmd_prepare_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, addr.short_addr, addr.ep, std::forward<Args>(args)...));
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         [[nodiscard]] std::optional<cmd_id_t> send_cmd(long_addr_t a, Args&&...args)
         {
             using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
-            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, a.long_addr, a.ep, std::forward<Args>(args)...));
+            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::cmd_prepare_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, a.long_addr, a.ep, std::forward<Args>(args)...));
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         [[nodiscard]] std::optional<cmd_id_t> send_cmd(group_addr_t a, Args&&...args)
         {
             using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
-            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, a.group, std::forward<Args>(args)...));
+            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::cmd_prepare_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, a.group, std::forward<Args>(args)...));
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         [[nodiscard]] std::optional<cmd_id_t> send_cmd(bind_id_addr_t a, Args&&...args)
         {
             using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
-            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, a.bind_table_id, std::forward<Args>(args)...));
+            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::cmd_prepare_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, a.bind_table_id, std::forward<Args>(args)...));
         }
 
         template<auto memPtr>
