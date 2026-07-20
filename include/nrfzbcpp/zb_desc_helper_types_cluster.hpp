@@ -174,56 +174,35 @@ namespace zb
         bool canceled;
     };
 
-    template<size_t I>
-    struct request_tag_t{};
 
-    template<size_t I, class T>
-    struct request_runtime_arg_t
+    template<size_t N>
+    struct request_runtime_args_raw_t: request_runtime_args_base_t
     {
-        T val;
+        uint8_t raw[N];
+        std::span<uint8_t> args_raw;
 
-        constexpr T& get(request_tag_t<I>) { return val; }
-        void copy_to(request_tag_t<I>, uint8_t *&pPtr) const
-        { 
-            if constexpr (sizeof(T) == 1)
-                *pPtr++ = *(const uint8_t*)&val;
-            else if constexpr (sizeof(T) == 2)
-            {
-                *pPtr++ = ((const uint8_t*)&val)[0];
-                *pPtr++ = ((const uint8_t*)&val)[1];
-            }else
-            {
-                std::memcpy(pPtr, &val, sizeof(T));
-                pPtr += sizeof(T);
-            }
-        }
-    };
-
-    template<class Seq, class... Args>
-    struct request_runtime_args_var_t;
-
-    template<size_t... I, class... Args>
-    struct request_runtime_args_var_t<std::index_sequence<I...>, Args...>: request_runtime_args_base_t, request_runtime_arg_t<I, Args>...
-    {
-        using request_runtime_arg_t<I, Args>::get...;
-        using request_runtime_arg_t<I, Args>::copy_to...;
-
-        request_runtime_args_var_t(zb_callback_t cb, uint16_t short_a, uint8_t e, addr_mode_t _addr_mode, Args&&... args):
-            request_runtime_args_base_t{.cb = cb, .dst_addr = {.addr_short = short_a} , .dst_ep = e, .addr_mode = _addr_mode, .canceled = false},
-            request_runtime_arg_t<I, Args>{args}...
-        {}
-
-        request_runtime_args_var_t(zb_callback_t cb, zb_ieee_addr_t long_a, uint8_t e, addr_mode_t _addr_mode, Args&&... args):
-            request_runtime_args_base_t{.cb = cb, .dst_ep = e, .addr_mode = _addr_mode, .canceled = false},
-            request_runtime_arg_t<I, Args>{args}...
+        template<cmd_arg_c... T>
+        request_runtime_args_raw_t(zb_callback_t cb, uint16_t short_a, uint8_t e, addr_mode_t _addr_mode, T const&... args):
+            request_runtime_args_base_t{.cb = cb, .dst_addr = {.addr_short = short_a} , .dst_ep = e, .addr_mode = _addr_mode, .canceled = false}
         {
+            store(args...);
+        }
+
+        template<cmd_arg_c... T>
+        request_runtime_args_raw_t(zb_callback_t cb, zb_ieee_addr_t long_a, uint8_t e, addr_mode_t _addr_mode, T const&... args):
+            request_runtime_args_base_t{.cb = cb, .dst_ep = e, .addr_mode = _addr_mode, .canceled = false}
+        {
+            store(args...);
             std::memcpy(dst_addr.addr_long, long_a, sizeof(zb_ieee_addr_t));
         }
 
-        uint8_t* copy_to_buffer(uint8_t *pPtr) const
+        template<cmd_arg_c... T>
+        void store(T const&... args)
         {
-            (copy_to(request_tag_t<I>{}, pPtr),...);
-            return pPtr;
+            static_assert(total_serialize_limit<T...>() <= N, "Cannot store arguments. Not enough storage space");
+            uint8_t *pDst = raw;
+            ((pDst = serialize_to(args, pDst, N - (pDst - raw))),...);
+            args_raw = {raw, size_t(pDst - raw)};
         }
     };
 
@@ -249,20 +228,21 @@ namespace zb
     struct conditional_var_t<T, true> { T value; };
     template<class T>
     struct conditional_var_t<T, false> {};
+
+    template<auto &p>
+    using pool_idx_type_t = typename std::remove_cvref_t<decltype(p)>::size_type;
+    template<auto &p>
+    using cmd_args_ret_t = std::optional<pool_idx_type_t<p>>;
+
     //as NTTP to cluster description template type
-    template<cmd_cfg_t cfg, class... Args>
+    template<cmd_cfg_t cfg, cmd_arg_c... Args>
     struct cluster_cmd_desc_t
     {
-        using runtime_args_t = request_runtime_args_var_t<decltype(std::make_index_sequence<sizeof...(Args)>{}), Args...>;
-        using PoolType = ObjectPool<runtime_args_t, cfg.pool_size>;
-        using pool_idx_type_t = typename PoolType::size_type;
-        using args_ret_t = std::optional<pool_idx_type_t>;
-        static PoolType g_Pool;
-        using RequestPtr = PoolType::template Ptr<g_Pool>;
         using typed_callback_t = void(*)(Args const&...);
 
         static constexpr auto pool_size() { return cfg.pool_size; }
-        static constexpr bool is_generated() { return pool_size() >= 1; }
+        static constexpr auto total_arg_raw_size() { return total_serialize_limit<Args...>(); }
+        static constexpr bool is_generated() { return cfg.pool_size >= 1; }
         static constexpr bool is_received() { return cfg.receive; }
         static constexpr auto timeout_ms() { return cfg.timeout_ms; }
 
@@ -270,69 +250,55 @@ namespace zb
 
         [[no_unique_address]]conditional_var_t<typed_callback_t, cfg.receive> m_Callback{};
 
-        static zb_bool_t on_recv_cmd(zb_uint8_t param)
+        template<auto &g_Pool> requires is_object_pool_obj_v<g_Pool>
+        struct prepare_t
         {
-            zb_bool_t processed = ZB_TRUE;
-            zb_zcl_parsed_hdr_t cmd_info;
-            zb_ret_t status = RET_OK;
+            using PoolType = std::remove_cvref_t<decltype(g_Pool)>;
+            using prepare_ret_t = cmd_args_ret_t<g_Pool>;
 
-            if ( ZB_ZCL_GENERAL_GET_CMD_LISTS_PARAM == param )
-            {
-                //ZCL_CTX().zb_zcl_cluster_cmd_list = &gs_poll_control_client_cmd_list;
-                return ZB_TRUE;
+            template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
+            static prepare_ret_t prepare_args(zb_callback_t cb, TArgs&&... args) { 
+                auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, uint16_t(0), uint8_t(0), addr_mode_t::NoAddr_NoEP, std::forward<Args>(args)...)); 
+                return r == PoolType::kInvalid ? std::nullopt : cmd_args_ret_t<g_Pool>(r);
             }
-            return ZB_TRUE;
-        }
 
-        template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-        static args_ret_t prepare_args(zb_callback_t cb, TArgs&&... args) { 
-            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, uint16_t(0), uint8_t(0), addr_mode_t::NoAddr_NoEP, std::forward<Args>(args)...)); 
-            return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
-        }
+            template<class... TArgs> requires is_object_pool_obj_v<g_Pool> && (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
+            static prepare_ret_t prepare_args(zb_callback_t cb, uint16_t short_addr, uint8_t ep, TArgs&&... args)
+            {
+                auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, short_addr, ep, addr_mode_t::Dst16EP, std::forward<Args>(args)...));
+                return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
+            }
 
-        template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-        static args_ret_t prepare_args(zb_callback_t cb, uint16_t short_addr, uint8_t ep, TArgs&&... args)
-        {
-            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, short_addr, ep, addr_mode_t::Dst16EP, std::forward<Args>(args)...));
-            return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
-        }
+            template<class... TArgs> requires is_object_pool_obj_v<g_Pool> && (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
+            static prepare_ret_t prepare_args(zb_callback_t cb, zb_ieee_addr_t ieee_addr, uint8_t ep, TArgs&&... args)
+            {
+                auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, ieee_addr, ep, addr_mode_t::Dst64EP, std::forward<Args>(args)...)); 
+                return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
+            }
 
-        template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-        static args_ret_t prepare_args(zb_callback_t cb, zb_ieee_addr_t ieee_addr, uint8_t ep, TArgs&&... args)
-        {
-            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, ieee_addr, ep, addr_mode_t::Dst64EP, std::forward<Args>(args)...)); 
-            return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
-        }
+            template<class... TArgs> requires is_object_pool_obj_v<g_Pool> && (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
+            static prepare_ret_t prepare_args(zb_callback_t cb, uint16_t group_addr, TArgs&&... args)
+            {
+                auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, group_addr, uint8_t(0), addr_mode_t::Group_NoEP, std::forward<Args>(args)...));
+                return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
+            }
 
-        template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-        static args_ret_t prepare_args(zb_callback_t cb, uint16_t group_addr, TArgs&&... args)
-        {
-            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, group_addr, uint8_t(0), addr_mode_t::Group_NoEP, std::forward<Args>(args)...));
-            return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
-        }
-
-        template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-        static args_ret_t prepare_args(zb_callback_t cb, uint8_t bind_table_id, TArgs&&... args)
-        {
-            auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, uint16_t(0), bind_table_id, addr_mode_t::EPAsBindTableId, std::forward<Args>(args)...));
-            return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
-        }
+            template<class... TArgs> requires is_object_pool_obj_v<g_Pool> && (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
+            static prepare_ret_t prepare_args(zb_callback_t cb, uint8_t bind_table_id, TArgs&&... args)
+            {
+                auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, uint16_t(0), bind_table_id, addr_mode_t::EPAsBindTableId, std::forward<Args>(args)...));
+                return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
+            }
+        };
             
-        template<cluster_info_t i, request_args_t r>
+        template<auto &g_Pool, cluster_info_t i, request_args_t r> requires is_object_pool_obj_v<g_Pool>
         static bool request(uint16_t argsPoolIdx)
         {
             static_assert(r.profile_id && cfg.pool_size >= 1, "This command cannot be sent");
-            return zigbee_get_out_buf_delayed_ext( &on_out_buf_ready<i, r>, argsPoolIdx, 0) == RET_OK;
+            return zigbee_get_out_buf_delayed_ext( &on_out_buf_ready<g_Pool, i, r>, argsPoolIdx, 0) == RET_OK;
         }
 
-        static void cancel(uint16_t argsPoolIdx)
-        {
-            auto *pArgs = g_Pool.IdxToPtr(argsPoolIdx);
-            if (g_Pool.IsValid(pArgs))
-                pArgs->canceled = true;
-        }
-
-        template<cluster_info_t i, request_args_t r> requires (cfg.pool_size >= 1)
+        template<auto &g_Pool, cluster_info_t i, request_args_t r> requires (is_object_pool_obj_v<g_Pool> && cfg.pool_size >= 1)
         static void on_out_buf_ready(zb_bufid_t bufid, uint16_t poolIdx)
         {
             auto *pArgs = g_Pool.IdxToPtr(poolIdx);
@@ -342,6 +308,8 @@ namespace zb
                 return;
             }
 
+            using PoolType = std::remove_cvref_t<decltype(g_Pool)>;
+            using RequestPtr = PoolType::template Ptr<g_Pool>;
             RequestPtr raii(pArgs);
             if (pArgs->canceled)
             {
@@ -368,7 +336,9 @@ namespace zb
             }};
             ZB_ZCL_GET_SEQ_NUM();
             uint8_t* ptr = (uint8_t*)zb_zcl_start_command_header(bufid, f.u8, manu_code, cfg.cmd_id, nullptr);
-            ptr = pArgs->copy_to_buffer(ptr);
+            //buffer memory limit?
+            std::memcpy(ptr, pArgs->args_raw.data(), pArgs->args_raw.size());
+            ptr += pArgs->args_raw.size();
             zb_ret_t ret = zb_zcl_finish_and_send_packet(bufid, ptr, &pArgs->dst_addr, (uint8_t)pArgs->addr_mode, pArgs->dst_ep, r.ep, r.profile_id, i.id, pArgs->cb);
             if (RET_OK != ret && pArgs->cb)
                 pArgs->cb(0);
@@ -376,8 +346,6 @@ namespace zb
                 zb_buf_free(bufid);
         }
     };
-    template<cmd_cfg_t cfg, class... Args>
-    constinit inline cluster_cmd_desc_t<cfg, Args...>::PoolType cluster_cmd_desc_t<cfg, Args...>::g_Pool{};
 
     template<zb_uint8_t cmd_id, class... Args>
     struct cluster_std_cmd_desc_t: cluster_cmd_desc_t<{.cmd_id = cmd_id}, Args...> {};
@@ -551,6 +519,16 @@ namespace zb
                 return 0;
         }
 
+        static constexpr inline auto max_command_arg_raw_size() 
+        { 
+            if constexpr (kCmdCount >= 2)
+                return std::max(std::initializer_list<uint8_t>{mem_ptr_traits<decltype(cmdMemberDesc)>::MemberType::total_arg_raw_size()...}); 
+            else if constexpr (kCmdCount == 1)
+                return (mem_ptr_traits<decltype(cmdMemberDesc)>::MemberType::total_arg_raw_size(),...);
+            else
+                return 0;
+        }
+
         template<auto... cmdMemberDesc2>
         friend constexpr auto operator+(cluster_commands_desc_t<cmdMemberDesc...> lhs, cluster_commands_desc_t<cmdMemberDesc2...> rhs)
         {
@@ -568,6 +546,7 @@ namespace zb
         static constexpr inline size_t count_cvc_members() { return attributes.count_cvc_members(); }
         static constexpr inline size_t count_members_with_validators() { return attributes.count_members_with_validators(); }
         static constexpr inline auto max_command_pool_size() { return cmds.max_command_pool_size(); }
+        static constexpr inline auto max_command_arg_raw_size() { return cmds.max_command_arg_raw_size(); }
         static constexpr inline size_t count_generated() { return cmds.count_generated(); }
         static constexpr inline size_t count_received() { return cmds.count_received(); }
         static constexpr inline auto get_generated_commands() { return cmds.get_generated_commands(); }
@@ -658,6 +637,15 @@ namespace zb
                 return std::max(std::initializer_list<uint8_t>{T::max_command_pool_size()...}); 
             else if constexpr(N == 1)
                 return (T::max_command_pool_size(),...); 
+            else
+                return 0;
+        }
+        static constexpr auto max_command_arg_raw_size() 
+        { 
+            if constexpr (N >= 2)
+                return std::max(std::initializer_list<uint8_t>{T::max_command_arg_raw_size()...}); 
+            else if constexpr(N == 1)
+                return (T::max_command_arg_raw_size(),...); 
             else
                 return 0;
         }

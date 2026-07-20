@@ -5,6 +5,7 @@ extern "C" {
 #include <zboss_api.h>
 }
 #include <type_traits>
+#include <optional>
 
 namespace zb
 {
@@ -117,6 +118,65 @@ namespace zb
         else 
             static_assert(sizeof(T) == 0, "Unknown type");
         return type_t::Invalid;
+    }
+
+    template<class T>
+    concept serializable_c = requires(T t1, T const t2, uint8_t *pDst, uint8_t const* pSrc, size_t limit)
+    {
+        { t1.serialize_from(pSrc, limit) } -> std::same_as<std::optional<const uint8_t*>>;
+        { t2.serialize_to(pDst, limit) } -> std::same_as<std::optional<uint8_t*>>;
+    };
+
+    template<class T>
+    concept serializable_with_limit_c = serializable_c<T> && requires()
+    {
+        { T::serialize_limit() } -> std::same_as<size_t>;
+    };
+
+    template<class T>
+    concept cmd_arg_c = serializable_with_limit_c<T> || std::is_arithmetic_v<T> || std::is_enum_v<T>;
+
+
+    template<cmd_arg_c T>
+    std::optional<const uint8_t*> serialize_from(T &dst, const uint8_t *pSrc, size_t limit)
+    {
+        if constexpr (serializable_with_limit_c<T>)
+            return dst.serialize_from(pSrc, limit);
+        else
+        {
+            //raw
+            if (sizeof(T) > limit) return std::nullopt;
+            std::memcpy(&dst, pSrc, sizeof(T));
+            return pSrc + sizeof(T);
+        }
+    }
+
+    template<cmd_arg_c T>
+    std::optional<uint8_t*> serialize_to(T const& src, uint8_t *pDst, size_t limit)
+    {
+        if constexpr (serializable_with_limit_c<T>)
+            return src.serialize_to(pDst, limit);
+        else
+        {
+            if (sizeof(T) > limit) return std::nullopt;
+            std::memcpy(pDst, &src, sizeof(T));
+            return pDst + sizeof(T);
+        }
+    }
+
+    template<cmd_arg_c T>
+    constexpr size_t serialize_limit()
+    {
+        if constexpr (serializable_with_limit_c<T>)
+            return T::serialize_limit();
+        else
+            return sizeof(T);
+    }
+
+    template<cmd_arg_c... T>
+    constexpr size_t total_serialize_limit()
+    {
+        return (serialize_limit<T>() + ... + 0);
     }
 }
 

@@ -73,7 +73,6 @@ namespace zb
         cmd_id_t id;
         uint8_t args_idx;
         send_request_func_t send_req;
-        cancel_func_t cancel_req;
         cmd_send_status_cb_t cb;
         uint32_t timeout_ms;
     };
@@ -125,6 +124,8 @@ namespace zb
     {
         using SimpleDesc = simple_desc_t<Clusters::server_cluster_count(), Clusters::client_cluster_count()>;
         static constexpr auto kCmdQueueSize = i.cmd_queue_depth ? i.cmd_queue_depth : Clusters::max_command_pool_size();
+        static constexpr auto kCmdMaxArgsSize = Clusters::max_command_arg_raw_size();
+        using PoolType = ObjectPool<request_runtime_args_raw_t<kCmdMaxArgsSize>, kCmdQueueSize>;
         static_assert(kCmdQueueSize >= Clusters::max_command_pool_size(), "It's not allowed to set the command queue size lower than max pool size among all commands");
 
         template<class T1, class T2, class... T> requires std::is_same_v<cluster_list_t<i.ep, T1, T2, T...>, Clusters>
@@ -227,11 +228,15 @@ namespace zb
 
         inline static cmd_id_t g_cmd_num = 0;
         inline static RingBuffer<cmd_request_t, kCmdQueueSize> g_CmdQueue;
+        inline static ObjectPool<request_runtime_args_raw_t<kCmdMaxArgsSize>, kCmdQueueSize> g_CmdArgs;
         inline static zb::zb_alarm_ext_16_t g_CmdTimeoutTracker;
+        using RequestPtr = PoolType::template Ptr<g_CmdArgs>;
 
         static void on_send_cmd_timeout(cmd_request_t *pCmdReq)
         {
-            pCmdReq->cancel_req(pCmdReq->args_idx);
+            auto *pArgs = g_CmdArgs.IdxToPtr(pCmdReq->args_idx);
+            if (g_CmdArgs.IsValid(pArgs))
+                pArgs->canceled = true;
             auto *pCurrent = g_CmdQueue.peek();
             if (pCurrent == pCmdReq)
                 on_send_cmd_cb(0);
@@ -303,14 +308,13 @@ namespace zb
             using ClusterDescType = cluster_description_for_mem_ptr_t<memPtr>;
             using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
 
-            typename cmd_desc_t::RequestPtr raii(cmd_desc_t::g_Pool.IdxToPtr(*args_pool_idx));
+            RequestPtr raii(g_CmdArgs.IdxToPtr(*args_pool_idx));
             constexpr auto kTimeout = cfg.timeout_ms == kCmdTimeoutDefault ? cmd_desc_t::timeout_ms() : cfg.timeout_ms;
             auto r = g_CmdQueue.push(
                     /*struct cmd_request*/
                     /*id*/        g_cmd_num,
                     /*args_idx*/  *args_pool_idx,
-                    /*send_req*/  &cmd_desc_t::template request<ClusterDescType::info(), {.ep = i.ep}>,
-                   /*cancel_req*/ &cmd_desc_t::cancel,
+                    /*send_req*/  &cmd_desc_t::template request<g_CmdArgs, ClusterDescType::info(), {.ep = i.ep}>,
                     /*cb*/        cfg.cb,
                     /*timeout_ms*/kTimeout
             );
@@ -366,35 +370,35 @@ namespace zb
         [[nodiscard]] std::optional<cmd_id_t> send_cmd(Args&&...args)
         {
             using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
-            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::prepare_args(&on_send_cmd_cb, std::forward<Args>(args)...));
+            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, std::forward<Args>(args)...));
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         [[nodiscard]] std::optional<cmd_id_t> send_cmd(short_addr_t addr, Args&&...args)
         {
             using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
-            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::prepare_args(&on_send_cmd_cb, addr.short_addr, addr.ep, std::forward<Args>(args)...));
+            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, addr.short_addr, addr.ep, std::forward<Args>(args)...));
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         [[nodiscard]] std::optional<cmd_id_t> send_cmd(long_addr_t a, Args&&...args)
         {
             using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
-            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::prepare_args(&on_send_cmd_cb, a.long_addr, a.ep, std::forward<Args>(args)...));
+            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, a.long_addr, a.ep, std::forward<Args>(args)...));
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         [[nodiscard]] std::optional<cmd_id_t> send_cmd(group_addr_t a, Args&&...args)
         {
             using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
-            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::prepare_args(&on_send_cmd_cb, a.group, std::forward<Args>(args)...));
+            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, a.group, std::forward<Args>(args)...));
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         [[nodiscard]] std::optional<cmd_id_t> send_cmd(bind_id_addr_t a, Args&&...args)
         {
             using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
-            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::prepare_args(&on_send_cmd_cb, a.bind_table_id, std::forward<Args>(args)...));
+            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, a.bind_table_id, std::forward<Args>(args)...));
         }
 
         template<auto memPtr>

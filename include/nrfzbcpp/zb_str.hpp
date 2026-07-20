@@ -15,6 +15,22 @@ namespace zb
         operator void*() { return pStr; }
         uint8_t size() const { return pStr[0]; }
         std::string_view sv() const { return {pStr + 1, pStr[0]}; }
+
+
+        std::optional<const uint8_t*> serialize_from(const uint8_t *pSrc, size_t limit)
+        {
+            return std::nullopt;
+        }
+
+        std::optional<uint8_t*> serialize_to(uint8_t *pDst, size_t limit) const
+        {
+            if (size() >= limit)
+                return std::nullopt;
+
+            *pDst = size();
+            std::memcpy(pDst + 1, pStr + 1, *pDst);
+            return pDst + *pDst + 1;
+        }
     };
 
     struct zigbee_str_ref_t
@@ -90,6 +106,30 @@ namespace zb
 
         static constexpr type_t TypeId() { return type_t::CharStr; }
         static bool TypeValidator(uint8_t *value) { return *value < N; }
+
+        std::optional<const uint8_t*> serialize_from(const uint8_t *pSrc, size_t limit)
+        {
+            if (*pSrc >= N) return std::nullopt;
+            if (*pSrc >= limit) return std::nullopt;
+
+            std::memcpy(name, pSrc, *pSrc);
+            return pSrc + *pSrc + 1;
+        }
+
+        std::optional<uint8_t*> serialize_to(uint8_t *pDst, size_t limit) const
+        {
+            if (size() >= limit)
+                return std::nullopt;
+
+            *pDst = size();
+            std::memcpy(pDst + 1, name + 1, *pDst);
+            return pDst + *pDst + 1;
+        }
+
+        static constexpr size_t serialize_limit()
+        {
+            return N;
+        }
     };
 
     template<size_t N>
@@ -130,6 +170,30 @@ namespace zb
 
         static constexpr type_t TypeId() { return type_t::OctetStr; }
         static bool TypeValidator(uint8_t *value) { return *value < N; }
+
+        std::optional<const uint8_t*> serialize_from(const uint8_t *pSrc, size_t limit)
+        {
+            if (*pSrc >= N) return std::nullopt;
+            if (*pSrc >= limit) return std::nullopt;
+
+            std::memcpy(data, pSrc, *pSrc);
+            return pSrc + *pSrc + 1;
+        }
+
+        std::optional<uint8_t*> serialize_to(uint8_t *pDst, size_t limit) const
+        {
+            if (size() >= limit)
+                return std::nullopt;
+
+            *pDst = size();
+            std::memcpy(pDst + 1, data + 1, *pDst);
+            return pDst + *pDst + 1;
+        }
+
+        static constexpr size_t serialize_limit()
+        {
+            return N;
+        }
     };
 
     template<class T, size_t N> requires (std::is_trivially_copyable_v<T>
@@ -175,6 +239,32 @@ namespace zb
         {
             return (*value <= size_bytes()) && (*value % sizeof(T) == 0); 
         }
+
+        std::optional<const uint8_t*> serialize_from(const uint8_t *pSrc, size_t limit)
+        {
+            if (*pSrc > size_bytes()) return std::nullopt;
+            if (*pSrc >= limit) return std::nullopt;
+
+            len_bytes = *pSrc;
+
+            std::memcpy(data, pSrc + 1, *pSrc);
+            return pSrc + *pSrc + 1;
+        }
+
+        std::optional<uint8_t*> serialize_to(uint8_t *pDst, size_t limit) const
+        {
+            if (size() >= limit)
+                return std::nullopt;
+
+            *pDst = len_bytes;
+            std::memcpy(pDst + 1, data, *pDst);
+            return pDst + *pDst + 1;
+        }
+
+        static constexpr size_t serialize_limit()
+        {
+            return size_bytes() + 1;
+        }
     };
 
     template<class T> requires (std::is_trivially_copyable_v<T>
@@ -201,6 +291,31 @@ namespace zb
         static bool TypeValidator(uint8_t *value) 
         {
             return (*value == sizeof(T)) && ValidateCustomType((const T*)(value + 1));
+        }
+
+        std::optional<const uint8_t*> serialize_from(const uint8_t *pSrc, size_t limit)
+        {
+            if (*pSrc > sizeof(T)) return std::nullopt;
+            if (*pSrc >= limit) return std::nullopt;
+            len_bytes = *pSrc;
+
+            std::memcpy(data, pSrc + 1, *pSrc);
+            return pSrc + *pSrc + 1;
+        }
+
+        std::optional<uint8_t*> serialize_to(uint8_t *pDst, size_t limit) const
+        {
+            if (len_bytes >= limit)
+                return std::nullopt;
+
+            *pDst = len_bytes;
+            std::memcpy(pDst + 1, data + 1, *pDst);
+            return pDst + *pDst + 1;
+        }
+
+        static constexpr size_t serialize_limit()
+        {
+            return sizeof(T) + 1;
         }
     };
 

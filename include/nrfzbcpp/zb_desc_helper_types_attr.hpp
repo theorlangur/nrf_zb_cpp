@@ -81,6 +81,7 @@ namespace zb
         constexpr operator zb_discover_cmd_list_t*() { return &cmd_list; }
 
         constexpr static auto max_command_pool_size() { return Tag::max_command_pool_size(); }
+        constexpr static auto max_command_arg_raw_size() { return Tag::max_command_arg_raw_size(); }
         constexpr static bool is_role(role_t r) { return Tag::info().role == r; }
         constexpr static size_t attributes_with_access(access_t r) { return Tag::count_members_with_access(r); }
         constexpr static size_t cvc_attributes() { return Tag::count_cvc_members(); }
