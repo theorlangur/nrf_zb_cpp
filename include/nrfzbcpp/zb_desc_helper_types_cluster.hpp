@@ -206,16 +206,9 @@ namespace zb
         }
     };
 
-    struct request_args_t
-    {
-        uint8_t ep;
-        uint16_t profile_id = ZB_AF_HA_PROFILE_ID;
-    };
-
     struct cmd_cfg_t
     {
         uint8_t cmd_id;
-        uint8_t pool_size = 1;
         bool    receive = false;
         uint16_t manuf_code = ZB_ZCL_MANUF_CODE_INVALID;
         uint32_t timeout_ms = 0;//no timeout
@@ -229,91 +222,18 @@ namespace zb
     template<class T>
     struct conditional_var_t<T, false> {};
 
-    template<auto &p>
-    using pool_idx_type_t = typename std::remove_cvref_t<decltype(p)>::size_type;
-    template<auto &p>
-    using cmd_args_ret_t = std::optional<pool_idx_type_t<p>>;
-
-
     template<cmd_arg_c... Args>
     struct cmd_prepare_t
     {
-        template<auto &g_Pool> requires is_object_pool_obj_v<g_Pool>
-        struct prepare_t
+        template<cmd_arg_c... T>
+        static uint8_t* store_to(uint8_t *pDst, size_t limit, T const&... args)
         {
-            using PoolType = std::remove_cvref_t<decltype(g_Pool)>;
-            using prepare_ret_t = cmd_args_ret_t<g_Pool>;
-
-            template<class... TArgs> requires (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-            static prepare_ret_t prepare_args(zb_callback_t cb, TArgs&&... args) { 
-                auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, uint16_t(0), uint8_t(0), addr_mode_t::NoAddr_NoEP, std::forward<Args>(args)...)); 
-                return r == PoolType::kInvalid ? std::nullopt : cmd_args_ret_t<g_Pool>(r);
-            }
-
-            template<class... TArgs> requires is_object_pool_obj_v<g_Pool> && (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-            static prepare_ret_t prepare_args(zb_callback_t cb, uint16_t short_addr, uint8_t ep, TArgs&&... args)
-            {
-                auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, short_addr, ep, addr_mode_t::Dst16EP, std::forward<Args>(args)...));
-                return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
-            }
-
-            template<class... TArgs> requires is_object_pool_obj_v<g_Pool> && (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-            static prepare_ret_t prepare_args(zb_callback_t cb, zb_ieee_addr_t ieee_addr, uint8_t ep, TArgs&&... args)
-            {
-                auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, ieee_addr, ep, addr_mode_t::Dst64EP, std::forward<Args>(args)...)); 
-                return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
-            }
-
-            template<class... TArgs> requires is_object_pool_obj_v<g_Pool> && (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-            static prepare_ret_t prepare_args(zb_callback_t cb, uint16_t group_addr, TArgs&&... args)
-            {
-                auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, group_addr, uint8_t(0), addr_mode_t::Group_NoEP, std::forward<Args>(args)...));
-                return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
-            }
-
-            template<class... TArgs> requires is_object_pool_obj_v<g_Pool> && (std::is_convertible_v<std::remove_cvref_t<TArgs>, std::remove_cvref_t<Args>> &&...)
-            static prepare_ret_t prepare_args(zb_callback_t cb, uint8_t bind_table_id, TArgs&&... args)
-            {
-                auto r = g_Pool.PtrToIdx(g_Pool.Acquire(cb, uint16_t(0), bind_table_id, addr_mode_t::EPAsBindTableId, std::forward<Args>(args)...));
-                return r == PoolType::kInvalid ? std::nullopt : args_ret_t(r);
-            }
-        };
+            uint8_t *raw = pDst;
+            ((pDst = *serialize_to(args, pDst, limit - (pDst - raw))),...);
+            return pDst;
+        }
     };
 
-
-    inline void on_out_buf_ready_common(zb_bufid_t bufid, request_runtime_args_base_t *pArgs, uint16_t manu_code, uint16_t cluster_id, role_t role, uint8_t cmd_id, request_args_t r)
-    {
-        if (pArgs->canceled)
-        {
-            if (bufid != ZB_BUF_INVALID)
-                zb_buf_free(bufid);
-            return;
-        }
-
-        if (bufid == ZB_BUF_INVALID)
-        {
-            //out of mem?
-            if (pArgs->cb) pArgs->cb(0);
-            return;
-        }
-
-        frame_ctl_t f{.f{
-            .cluster_specific = true, 
-                .manufacture_specific = manu_code != ZB_ZCL_MANUF_CODE_INVALID
-                    , .direction = role == role_t::Client ? frame_direction_t::ToServer : frame_direction_t::ToClient
-                    , .disable_default_response = false
-        }};
-        ZB_ZCL_GET_SEQ_NUM();
-        uint8_t* ptr = (uint8_t*)zb_zcl_start_command_header(bufid, f.u8, manu_code, cmd_id, nullptr);
-        //buffer memory limit?
-        std::memcpy(ptr, pArgs->args_raw.data(), pArgs->args_raw.size());
-        ptr += pArgs->args_raw.size();
-        zb_ret_t ret = zb_zcl_finish_and_send_packet(bufid, ptr, &pArgs->dst_addr, (uint8_t)pArgs->addr_mode, pArgs->dst_ep, r.ep, r.profile_id, cluster_id, pArgs->cb);
-        if (RET_OK != ret && pArgs->cb)
-            pArgs->cb(0);
-        if (RET_OK != ret)
-            zb_buf_free(bufid);
-    }
 
     //as NTTP to cluster description template type
     template<cmd_cfg_t cfg, cmd_arg_c... Args>
@@ -321,50 +241,21 @@ namespace zb
     {
         using typed_callback_t = void(*)(Args const&...);
 
-        static constexpr auto pool_size() { return cfg.pool_size; }
         static constexpr auto total_arg_raw_size() { return total_serialize_limit<Args...>(); }
-        static constexpr bool is_generated() { return cfg.pool_size >= 1; }
+        static constexpr bool is_generated() { return !cfg.receive; }
         static constexpr bool is_received() { return cfg.receive; }
         static constexpr auto timeout_ms() { return cfg.timeout_ms; }
+        static constexpr auto manufacturer() { return cfg.manuf_code; }
 
         static constexpr uint8_t kCmdId = cfg.cmd_id;
 
         [[no_unique_address]]conditional_var_t<typed_callback_t, cfg.receive> m_Callback{};
 
         using cmd_prepare_t = cmd_prepare_t<Args...>;
-
-        template<auto &g_Pool, cluster_info_t i, request_args_t r> requires is_object_pool_obj_v<g_Pool>
-        static bool request(uint16_t argsPoolIdx)
-        {
-            static_assert(r.profile_id && cfg.pool_size >= 1, "This command cannot be sent");
-            return zigbee_get_out_buf_delayed_ext( &on_out_buf_ready<g_Pool, i, r>, argsPoolIdx, 0) == RET_OK;
-        }
-
-        template<auto &g_Pool, cluster_info_t i, request_args_t r> requires (is_object_pool_obj_v<g_Pool> && cfg.pool_size >= 1)
-        static void on_out_buf_ready(zb_bufid_t bufid, uint16_t poolIdx)
-        {
-            auto *pArgs = g_Pool.IdxToPtr(poolIdx);
-            if (!g_Pool.IsValid(pArgs))
-            {
-                //weird
-                return;
-            }
-
-            using PoolType = std::remove_cvref_t<decltype(g_Pool)>;
-            using RequestPtr = PoolType::template Ptr<g_Pool>;
-            RequestPtr raii(pArgs);
-            static_assert(i.role == role_t::Client || i.role == role_t::Server);
-            constexpr uint16_t manu_code = i.manuf_code != ZB_ZCL_MANUF_CODE_INVALID ? i.manuf_code : cfg.manuf_code;
-            on_out_buf_ready_common(bufid, pArgs, manu_code, i.id, i.role, cfg.cmd_id, r);
-
-        }
     };
 
     template<zb_uint8_t cmd_id, class... Args>
     struct cluster_std_cmd_desc_t: cluster_cmd_desc_t<{.cmd_id = cmd_id}, Args...> {};
-
-    template<zb_uint8_t cmd_id, uint8_t pool_size, class... Args>
-    struct cluster_std_cmd_desc_with_pool_size_t: cluster_cmd_desc_t<{.cmd_id = cmd_id, .pool_size = pool_size ? pool_size : cmd_cfg_t{}.pool_size}, Args...> {};
 
     struct cmd_to_arg_t
     {
@@ -390,7 +281,7 @@ namespace zb
     };
 
     template<zb_uint8_t cmd_id, class... Args>
-    struct cluster_in_cmd_desc_t: cluster_cmd_desc_t<{.cmd_id = cmd_id, .pool_size = 0, .receive = true}, Args...> {
+    struct cluster_in_cmd_desc_t: cluster_cmd_desc_t<{.cmd_id = cmd_id, .receive = true}, Args...> {
         using this_type = cluster_in_cmd_desc_t<cmd_id, Args...>;
         using callback_t = cmd_handling_result_t(*)(Args const&...);
         static constexpr size_t kArgRawSize = (sizeof(Args) + ... + 0);
@@ -411,8 +302,8 @@ namespace zb
     template<zb_uint8_t cmd_id, class... Args>
     using cmd_in_t = cluster_in_cmd_desc_t<cmd_id, Args...>;
 
-    template<zb_uint8_t cmd_id, uint8_t pool_size, class... Args>
-    using cmd_pool_t = cluster_std_cmd_desc_with_pool_size_t<cmd_id, pool_size, Args...>;
+    template<zb_uint8_t cmd_id, class... Args>
+    using cmd_out_t = cluster_std_cmd_desc_t<cmd_id, Args...>;
 
     template<cmd_cfg_t cfg, class... Args>
     using cmd_generic_t = cluster_cmd_desc_t<cfg, Args...>;
@@ -522,16 +413,6 @@ namespace zb
             return res;
         }
 
-        static constexpr inline auto max_command_pool_size() 
-        { 
-            if constexpr (kCmdCount >= 2)
-                return std::max(std::initializer_list<uint8_t>{mem_ptr_traits<decltype(cmdMemberDesc)>::MemberType::pool_size()...}); 
-            else if constexpr (kCmdCount == 1)
-                return (mem_ptr_traits<decltype(cmdMemberDesc)>::MemberType::pool_size(),...);
-            else
-                return 0;
-        }
-
         static constexpr inline auto max_command_arg_raw_size() 
         { 
             if constexpr (kCmdCount >= 2)
@@ -558,7 +439,6 @@ namespace zb
         static constexpr inline size_t count_members_with_access(access_t a) { return attributes.count_members_with_access(a); }
         static constexpr inline size_t count_cvc_members() { return attributes.count_cvc_members(); }
         static constexpr inline size_t count_members_with_validators() { return attributes.count_members_with_validators(); }
-        static constexpr inline auto max_command_pool_size() { return cmds.max_command_pool_size(); }
         static constexpr inline auto max_command_arg_raw_size() { return cmds.max_command_arg_raw_size(); }
         static constexpr inline size_t count_generated() { return cmds.count_generated(); }
         static constexpr inline size_t count_received() { return cmds.count_received(); }
@@ -644,15 +524,6 @@ namespace zb
         void operator=(cluster_list_t const&) = delete;
         void operator=(cluster_list_t &&) = delete;
 
-        static constexpr auto max_command_pool_size() 
-        { 
-            if constexpr (N >= 2)
-                return std::max(std::initializer_list<uint8_t>{T::max_command_pool_size()...}); 
-            else if constexpr(N == 1)
-                return (T::max_command_pool_size(),...); 
-            else
-                return 0;
-        }
         static constexpr auto max_command_arg_raw_size() 
         { 
             if constexpr (N >= 2)

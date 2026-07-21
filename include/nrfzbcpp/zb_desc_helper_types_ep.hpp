@@ -2,6 +2,7 @@
 #define ZB_DESC_HELPER_TYPES_EP_HPP_
 
 #include "lib_ring_buffer.hpp"
+#include "nrfzbcpp/zb_buf.hpp"
 #include "zb_desc_helper_types_cluster.hpp"
 #include "nrfzbcpp/zb_alarm.hpp"
 
@@ -54,7 +55,7 @@ namespace zb
         zb_uint8_t ep;
         zb_uint16_t dev_id;
         zb_uint8_t dev_ver;
-        uint8_t cmd_queue_depth = 0;//0 - auto
+        uint8_t cmd_queue_depth = 2;//0 - auto
     };
 
     using cmd_id_t = uint8_t;
@@ -123,10 +124,10 @@ namespace zb
     struct ep_desc_t
     {
         using SimpleDesc = simple_desc_t<Clusters::server_cluster_count(), Clusters::client_cluster_count()>;
-        static constexpr auto kCmdQueueSize = i.cmd_queue_depth ? i.cmd_queue_depth : Clusters::max_command_pool_size();
+        static constexpr auto kCmdQueueSize = i.cmd_queue_depth;
         static constexpr auto kCmdMaxArgsSize = Clusters::max_command_arg_raw_size();
-        using PoolType = ObjectPool<request_runtime_args_raw_t<kCmdMaxArgsSize>, kCmdQueueSize>;
-        static_assert(kCmdQueueSize >= Clusters::max_command_pool_size(), "It's not allowed to set the command queue size lower than max pool size among all commands");
+        static constexpr size_t kMaxAllowedArgumentSize = 100;
+        static_assert(kCmdMaxArgsSize <= kMaxAllowedArgumentSize, "Too much data for command arguments");
 
         template<class T1, class T2, class... T> requires std::is_same_v<cluster_list_t<i.ep, T1, T2, T...>, Clusters>
         constexpr ep_desc_t(cluster_list_t<i.ep, T1, T2, T...> &clusters):
@@ -226,179 +227,150 @@ namespace zb
             return attribute_access_t<ClusterDescType::info(), ClusterDescType::template get_member_description<memPtr>(), checked>{ep};
         }
 
+        struct issued_cmd_t
+        {
+            cmd_send_status_cb_t cb = nullptr;
+            zb_bufid_t buf = ZB_BUF_INVALID;
+            cmd_id_t cmd_id;
+        };
+
         inline static cmd_id_t g_cmd_num = 0;
-        inline static RingBuffer<cmd_request_t, kCmdQueueSize> g_CmdQueue;
-        inline static ObjectPool<request_runtime_args_raw_t<kCmdMaxArgsSize>, kCmdQueueSize> g_CmdArgs;
-        inline static zb::zb_alarm_ext_16_t g_CmdTimeoutTracker;
-        using RequestPtr = PoolType::template Ptr<g_CmdArgs>;
+        inline static pre_alloc_zb_bufs_out<kCmdQueueSize> g_PreAllocBufs;
+        inline static std::array<issued_cmd_t, kCmdQueueSize> g_IssuedCmds;
 
-        static void on_send_cmd_timeout(cmd_request_t *pCmdReq)
+        static issued_cmd_t* find_free_issued_cmd_entry()
         {
-            auto *pArgs = g_CmdArgs.IdxToPtr(pCmdReq->args_idx);
-            if (g_CmdArgs.IsValid(pArgs))
-                pArgs->canceled = true;
-            auto *pCurrent = g_CmdQueue.peek();
-            if (pCurrent == pCmdReq)
-                on_send_cmd_cb(0);
-            else
+            for(auto &cmd : g_IssuedCmds)
             {
-                //how is this possible?
+                if (cmd.buf == ZB_BUF_INVALID)
+                    return &cmd;
             }
+            return nullptr;
         }
 
-        static bool send_next_cmd(bool with_cb = true)
+        static void on_send_cmd_timeout2(zb_bufid_t buf)
         {
-            if (auto *pNextCmd = g_CmdQueue.peek())
+            for(auto &cmd : g_IssuedCmds)
             {
-                //try and send next request
-                if (!pNextCmd->send_req(pNextCmd->args_idx))
+                if (cmd.buf == buf)
                 {
-                    //couldn't send
-                    auto cb = pNextCmd->cb;
-                    auto cmd_id = pNextCmd->id;
-                    g_CmdQueue.drop();
-                    if (cb && with_cb)
-                        cb(cmd_id, nullptr);
-#if defined(DBG_CMD)
-                    else
-                        printk("failed to initiate send command request for %d (cb=%p)\r\n", cmd_id, cb);
-#endif
-                    return false;
-                }else if (pNextCmd->timeout_ms)
-                    g_CmdTimeoutTracker.Setup([pNextCmd]{on_send_cmd_timeout(pNextCmd);}, pNextCmd->timeout_ms);
-                return true;
+                    g_PreAllocBufs.deallocate(cmd.buf);
+                    cmd.buf = ZB_BUF_INVALID;
+                    cmd.cb(cmd.cmd_id, nullptr);
+                    return;
+                }
             }
-            return false;
+            ZB_ASSERT(false);
         }
 
-        static void on_send_cmd_cb(zb_uint8_t param)
+        static void on_send_cmd_cb2(zb_uint8_t buf)
         {
-            g_CmdTimeoutTracker.Cancel();
-            auto *pCurrent = g_CmdQueue.peek();
-            if (!pCurrent)
+            for(auto &cmd : g_IssuedCmds)
             {
-#if defined(DBG_CMD)
-                printk("on_send_cmd_cb: param=%d; pCurrent=null; queue empty. unexpected\r\n", param);
-#endif
-                return;
+                if (cmd.buf == buf)
+                {
+                    zb_schedule_alarm_cancel(on_send_cmd_cb2, buf, nullptr);
+                    zb_zcl_command_send_status_t *cmd_send_status = buf ? ZB_BUF_GET_PARAM(buf, zb_zcl_command_send_status_t) : nullptr;
+                    g_PreAllocBufs.deallocate(cmd.buf);//cmd_send_status memory is still valid
+                    cmd.buf = ZB_BUF_INVALID;
+                    cmd.cb(cmd.cmd_id, cmd_send_status);
+                    return;
+                }
             }
-            ZB_ASSERT(pCurrent);
-            auto cmd_id = pCurrent->id;
-            auto cb = pCurrent->cb;
-#if defined(DBG_CMD)
-            printk("on_send_cmd_cb: param=%d; id=%d; cb=%p; pCurrent=%p\r\n", param, cmd_id, (void*)cb, pCurrent);
-#endif
-            g_CmdQueue.drop();
-            if (cb)
-            {
-                zb_zcl_command_send_status_t *cmd_send_status = param ? ZB_BUF_GET_PARAM(param, zb_zcl_command_send_status_t) : nullptr;
-                cb(cmd_id, cmd_send_status);
-            }
-
-            if (param)
-                zb_buf_free(param);
-            //if we cannot send commands we'll just drain the queue
-            //sad but there's nothing much else we can do
-            while(g_CmdQueue.peek() && !send_next_cmd());
         }
 
-        template<auto memPtr, send_cmd_config_t cfg>
-        std::optional<cmd_id_t> send_cmd_impl(auto args_pool_idx)
+        template<auto memPtr, send_cmd_config_t cfg={}, class... Args> requires (!is_zb_addr_type_c<Args> && ...)
+        [[nodiscard]] std::optional<cmd_id_t> send_cmd_impl(zb_addr_u addr, addr_mode_t mode, uint8_t dst_ep, Args&&...args)
         {
-            using ClusterDescType = cluster_description_for_mem_ptr_t<memPtr>;
+            zb_bufid_t b = g_PreAllocBufs.allocate();
+            if (b == ZB_BUF_INVALID)
+                return std::nullopt;
+            issued_cmd_t *pIssued = find_free_issued_cmd_entry();
+            ZB_ASSERT(pIssued);//size of issued array and pre-allocated are the same
+            //so it must be valid
             using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
-
-            RequestPtr raii(g_CmdArgs.IdxToPtr(*args_pool_idx));
+            using ClusterDescType = cluster_description_for_mem_ptr_t<memPtr>;
             constexpr auto kTimeout = cfg.timeout_ms == kCmdTimeoutDefault ? cmd_desc_t::timeout_ms() : cfg.timeout_ms;
-            auto r = g_CmdQueue.push(
-                    /*struct cmd_request*/
-                    /*id*/        g_cmd_num,
-                    /*args_idx*/  *args_pool_idx,
-                    /*send_req*/  &cmd_desc_t::template request<g_CmdArgs, ClusterDescType::info(), {.ep = i.ep}>,
-                    /*cb*/        cfg.cb,
-                    /*timeout_ms*/kTimeout
-            );
-            if (!r) return std::nullopt;
-            //if the size of the Queue is 1 it means this command is the only there
-            //we need to send it right away
-#if defined(DBG_CMD)
-            printk("send_cmd1: id=%d; cb=%p\r\n", g_cmd_num, (void*)cfg.cb);
-#endif
-            if (*r == 1) 
-                if (!send_next_cmd(false))
-                    return std::nullopt;
-            raii.release();
+            constexpr auto ci = ClusterDescType::info();
+            constexpr uint16_t manu_code = ci.manuf_code != ZB_ZCL_MANUF_CODE_INVALID ? ci.manuf_code : cmd_desc_t::manufacturer();
+            frame_ctl_t f{.f{
+                .cluster_specific = true, 
+                    .manufacture_specific = manu_code != ZB_ZCL_MANUF_CODE_INVALID
+                        , .direction = ci.role == role_t::Client ? frame_direction_t::ToServer : frame_direction_t::ToClient
+                        , .disable_default_response = false
+            }};
+            ZB_ZCL_GET_SEQ_NUM();
+            uint8_t* ptr = (uint8_t*)zb_zcl_start_command_header(b, f.u8, manu_code, cmd_desc_t::kCmdId, nullptr);
+            ptr = cmd_desc_t::cmd_prepare_t::store_to(ptr, kMaxAllowedArgumentSize, std::forward<Args>(args)...);
+            zb_ret_t ret = zb_zcl_finish_and_send_packet(b, ptr, &addr, (uint8_t)mode/*addr mode*/, dst_ep, i.ep, ZB_AF_HA_PROFILE_ID, ci.id, on_send_cmd_cb2);
+            if (RET_OK != ret)
+            {
+                g_PreAllocBufs.deallocate(b);
+                return std::nullopt;
+            }
+
+            pIssued->buf = b;
+            pIssued->cb = cfg.cb;
+            pIssued->cmd_id = g_cmd_num;
+            if (zb_schedule_app_alarm(on_send_cmd_timeout2, b, ZB_MILLISECONDS_TO_BEACON_INTERVAL(kTimeout)) != RET_OK)
+            {
+                pIssued->buf = ZB_BUF_INVALID;
+                g_PreAllocBufs.deallocate(b);
+                return std::nullopt;
+            }
+
             return g_cmd_num++;
         }
 
     public:
+        void init()
+        {
+            g_PreAllocBufs.init();
+        }
+
         template<auto memPtr>
         auto attr() { return attr_raw<memPtr, false>(); }
 
         template<auto memPtr>
         auto attr_checked() { return attr_raw<memPtr, true>(); }
 
-        template<auto memPtr>
-        void dump_mem_info()
-        {
-            constexpr auto types = validate_mem_ptr<memPtr>();
-            using ClusterDescType = decltype(types)::ClusterType;
-            constexpr auto cmd_desc = ClusterDescType::template get_cmd_description<memPtr>();
-            using cmd_desc_t = decltype(cmd_desc);
-            const auto &allocated = cmd_desc_t::g_Pool.AllocatedBitSet();
-            printk("Mem info pool idx allocated:");
-            for(size_t b = 0; b < allocated.BitCount; ++b)
-            {
-                if (allocated.test(b))
-                    printk(" %d;", b);
-            }
-            printk("\r\n");
-        }
-
-        template<auto... memPtr>
         void dump_info()
         {
-            printk("g_cmd_num=%d; queue size=%d\r\n", g_cmd_num, g_CmdQueue.size());
-            for(cmd_request_t *pCmdReq : g_CmdQueue)
-                printk("cmd: id=%d; arg idx=%d\r\n", pCmdReq->id, pCmdReq->args_idx);
-
-            if constexpr(sizeof...(memPtr) > 0)
-                (dump_mem_info<memPtr>(),...);
+            printk("g_cmd_num=%d;\r\n", g_cmd_num);
+            for(auto &cmd : g_IssuedCmds)
+                printk("cmd: id=%d; buf idx=%d\r\n", cmd.cmd_id, cmd.buf);
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args> requires (!is_zb_addr_type_c<Args> && ...)
         [[nodiscard]] std::optional<cmd_id_t> send_cmd(Args&&...args)
         {
-            using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
-            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::cmd_prepare_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, std::forward<Args>(args)...));
+            return send_cmd_impl<memPtr, cfg>(zb_addr_u{.addr_short = 0}, addr_mode_t::NoAddr_NoEP, 0, std::forward<Args>(args)...);
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         [[nodiscard]] std::optional<cmd_id_t> send_cmd(short_addr_t addr, Args&&...args)
         {
-            using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
-            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::cmd_prepare_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, addr.short_addr, addr.ep, std::forward<Args>(args)...));
+            return send_cmd_impl<memPtr, cfg>(zb_addr_u{.addr_short = addr.short_addr}, addr_mode_t::Dst16EP, addr.ep, std::forward<Args>(args)...);
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         [[nodiscard]] std::optional<cmd_id_t> send_cmd(long_addr_t a, Args&&...args)
         {
-            using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
-            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::cmd_prepare_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, a.long_addr, a.ep, std::forward<Args>(args)...));
+            zb_addr_u addr;
+            std::memcpy(addr.addr_long, a.long_addr, sizeof(a.long_addr));
+            return send_cmd_impl<memPtr, cfg>(addr, addr_mode_t::Dst64EP, a.ep, std::forward<Args>(args)...);
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         [[nodiscard]] std::optional<cmd_id_t> send_cmd(group_addr_t a, Args&&...args)
         {
-            using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
-            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::cmd_prepare_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, a.group, std::forward<Args>(args)...));
+            return send_cmd_impl<memPtr, cfg>(zb_addr_u{.addr_short = a.group}, addr_mode_t::Group_NoEP, 0, std::forward<Args>(args)...);
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args>
         [[nodiscard]] std::optional<cmd_id_t> send_cmd(bind_id_addr_t a, Args&&...args)
         {
-            using cmd_desc_t = cmd_description_for_mem_ptr_t<memPtr>;
-            return send_cmd_impl<memPtr, cfg>(cmd_desc_t::cmd_prepare_t::template prepare_t<g_CmdArgs>::prepare_args(&on_send_cmd_cb, a.bind_table_id, std::forward<Args>(args)...));
+            return send_cmd_impl<memPtr, cfg>(zb_addr_u{.addr_short = 0}, addr_mode_t::EPAsBindTableId, a.bind_table_id, std::forward<Args>(args)...);
         }
 
         template<auto memPtr>
