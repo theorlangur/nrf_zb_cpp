@@ -112,6 +112,11 @@ namespace zb
 
         template<zb_uint8_t dummy>
         constexpr auto get(ep_tag_t<dummy>) { static_assert(sizeof(ep_tag_t<dummy>) == 0, "EP not found"); }
+
+        void init()
+        {
+            (ep_container_mem_t<EPs>::m.ep.init(),...);
+        }
     };
 
     template<class T>
@@ -145,6 +150,8 @@ namespace zb
 
         template<zb_uint8_t _ep>
         constexpr auto& ep_obj() { return eps.get(ep_tag_t<_ep>{}); }
+
+        void init() { return eps.init(); }
 
         operator zb_af_device_ctx_t*() { return &ctx; }
 
