@@ -243,7 +243,8 @@ namespace zb
             {
                 if (cmd.buf == buf)
                 {
-                    g_PreAllocBufs.deallocate(cmd.buf);
+                    printk("on_send_cmd_timeout2: %d\r\n", buf);
+                    //g_PreAllocBufs.deallocate(cmd.buf);
                     cmd.buf = ZB_BUF_INVALID;
                     cmd.cb(cmd.cmd_id, nullptr);
                     return;
@@ -258,6 +259,7 @@ namespace zb
             {
                 if (cmd.buf == buf)
                 {
+                    printk("on_send_cmd_cb2: %d (cmd_id == %d)\r\n", buf, cmd.cmd_id);
                     zb_schedule_alarm_cancel(on_send_cmd_cb2, buf, nullptr);
                     zb_zcl_command_send_status_t *cmd_send_status = buf ? ZB_BUF_GET_PARAM(buf, zb_zcl_command_send_status_t) : nullptr;
                     g_PreAllocBufs.deallocate(cmd.buf);//cmd_send_status memory is still valid
@@ -266,6 +268,9 @@ namespace zb
                     return;
                 }
             }
+            //need to return either way, even if there was a timeout
+            g_PreAllocBufs.deallocate(buf);
+            printk("on_send_cmd_cb2: %d; not found\r\n", buf);
         }
 
         template<auto memPtr, send_cmd_config_t cfg={}, class... Args> requires (!is_zb_addr_type_c<Args> && ...)
@@ -294,20 +299,26 @@ namespace zb
             zb_ret_t ret = zb_zcl_finish_and_send_packet(b, ptr, &addr, (uint8_t)mode/*addr mode*/, dst_ep, i.ep, ZB_AF_HA_PROFILE_ID, ci.id, on_send_cmd_cb2);
             if (RET_OK != ret)
             {
+                printk("send_cmd_impl(%d): failed to send %d\r\n", b, ret);
                 g_PreAllocBufs.deallocate(b);
                 return std::nullopt;
             }
 
-            pIssued->buf = b;
-            pIssued->cb = cfg.cb;
-            pIssued->cmd_id = g_cmd_num;
-            if (zb_schedule_app_alarm(on_send_cmd_timeout2, b, ZB_MILLISECONDS_TO_BEACON_INTERVAL(kTimeout)) != RET_OK)
+            if constexpr (cfg.cb)
             {
-                pIssued->buf = ZB_BUF_INVALID;
-                g_PreAllocBufs.deallocate(b);
-                return std::nullopt;
+                pIssued->buf = b;
+                pIssued->cb = cfg.cb;
+                pIssued->cmd_id = g_cmd_num;
+                if ((ret = zb_schedule_app_alarm(on_send_cmd_timeout2, b, ZB_MILLISECONDS_TO_BEACON_INTERVAL(kTimeout))) != RET_OK)
+                {
+                    printk("send_cmd_impl(%d): failed to arm the alarm %d\r\n", b, ret);
+                    pIssued->buf = ZB_BUF_INVALID;
+                    g_PreAllocBufs.deallocate(b);
+                    return std::nullopt;
+                }
             }
 
+            printk("send_cmd_impl(%d): ok. cmd_id=%d\r\n", b, g_cmd_num);
             return g_cmd_num++;
         }
 
