@@ -67,17 +67,6 @@ namespace zb
         uint32_t timeout_ms = kCmdTimeoutDefault;
     };
 
-    using send_request_func_t = bool (*)(uint16_t argsPoolIdx);
-    using cancel_func_t = void (*)(uint16_t argsPoolIdx);
-    struct cmd_request_t
-    {
-        cmd_id_t id;
-        uint8_t args_idx;
-        send_request_func_t send_req;
-        cmd_send_status_cb_t cb;
-        uint32_t timeout_ms;
-    };
-
     template<auto memPtr>
     using cluster_description_for_mem_ptr_t = decltype(zcl_description_t<typename mem_ptr_traits<decltype(memPtr)>::ClassType>::get());
 
