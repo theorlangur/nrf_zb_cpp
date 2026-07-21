@@ -153,7 +153,7 @@ namespace zb
 	float attr2;
 
 	cmd_in_t<kZB_MY_INBOUND_CMD_ID, float/*arg1*/, uint8_t/*arg2*/> my_inbound_cmd1;
-	cmd_pool_t<kZB_MY_OUTBOUND_CMD_ID, 3/*pool size*/, uint8_t/*arg1*/> my_outbound_cmd2;
+	cmd_out_t<kZB_MY_OUTBOUND_CMD_ID, uint8_t/*arg1*/> my_outbound_cmd2;
     };
 
     //This is important as it actually makes 'zb_zcl_my_cluster_t' type
@@ -235,9 +235,9 @@ In order to define commands that may be sent by a cluster (doesn't matter, serve
 the following types are to be used:
 ```cpp
 //simplified version
-cmd_pool_t<COMMAND_ID, <MinPoolSize>, Arguments...> my_command;
+cmd_out_t<COMMAND_ID, Arguments...> my_command;
 //generic, configurable version
-cmd_generic_t</*cmd_cfg_t*/{.cmd_id=...,.pool_size=...,...},Arguments...> my_command2;
+cmd_generic_t</*cmd_cfg_t*/{.cmd_id=...,...},Arguments...> my_command2;
 ```
 Example:
 ```cpp
@@ -307,6 +307,7 @@ auto cmd_id2 = zb_ep.send_cmd<kCmd2, {.cb = on_cmd_sent}>(zb::cmd2_args{.a1 = 3,
 ```
 
 #### Command pools and queues
+Note: outdated
 Apparently ZBOSS doesn't really like attempts to send several commands for the same cluster (endpoint?) in parallel at the same time (or while
 the other one is still being sent). To make sure that doesn't happen, there's a concept of the 'command queue' that exists on the
 endpoint level.
@@ -317,11 +318,11 @@ based on the maximum pool size of those commands.
 
 The amount of each kind of command that the sending process can be initiated for is defined by the size of the pool (see `cluster_cmd_desc_t<...>::g_Pool`). 
 The pools size for each command can be configured with `cmd_cfg_t::pool_size` (default 1).
-There's also a helping class `cmd_pool_t` that allows specifying a pool size.
+There's also a helping class `cmd_out_t` that allows specifying a pool size.
 Example:
 ```cpp
-cmd_pool_t<CMD_ID, 2/*pool size*/> cmd1;
-cmd_generic_t<{.cmd_id=CMD_ID2, .pool_size=2}> cmd2;
+cmd_out_t<CMD_ID> cmd1;
+cmd_generic_t<{.cmd_id=CMD_ID2}> cmd2;
 ```
 
 Each send method (e.g. `send_cmd`, `send_cmd_to`) returns a `std::optional<cmd_id_t>`, where `cmd_id_t` is a a command index generated
@@ -715,7 +716,7 @@ Commands are managed through a pool-based dispatch system on the endpoint level.
 - Holds a static `ObjectPool<runtime_args_t, pool_size>` (`g_Pool`) to buffer command arguments, preventing concurrent-send conflicts in ZBOSS.
 - **Sent commands**: use `prepare_args(cb, args...)` to pack arguments for sending. Returns an argument pool index (`uint16_t`). Then call `request(i, payload)` or `cancel(i)`. Static callbacks fire on completion/timeout/cancel. The sender type aliases:
   - `cmd_generic_t<{.cmd_id=..., .pool_size=...}, Args...>` — fully configurable command with optional callback.
-  - `cmd_pool_t<id, pool_size, Args...>` — convenience alias for sent commands (default pool_size=1).
+  - `cmd_out_t<id, Args...>` — convenience alias for sent commands 
 
 `cluster_in_cmd_desc_t` / `cmd_in_t<id, Args...>` — Inbound (received) command type. Parameters: `pool_size=0, receive=true`. Carries a user-settable callback of type `CmdHandlingResult(*)(Args const&...)` stored as `.cb`. Wire bytes are unpacked via `cmd_to_arg` (handles alignment). The `raw_handler` static method dispatches to the registered callback when invoked by ZBOSS.
 
