@@ -550,15 +550,15 @@ namespace zb
 
     struct additional_cluster_handlers_t
     {
-        uint8_t ep;
-        uint16_t cluster;
         zb_zcl_cluster_check_value_t checker;
         zb_zcl_cluster_handler_t cmd_handler;
+        uint16_t cluster;
+        uint8_t ep;
     };
 
     struct reserved_array_additional_cluster_handlers_t
     {
-        constexpr static size_t kMaxEntries = 4;
+        constexpr static size_t kMaxEntries = 1;
         uint8_t size = 0;
         additional_cluster_handlers_t slots[kMaxEntries];
 
