@@ -260,7 +260,7 @@ namespace zb
                 if (cmd.buf == buf)
                 {
                     //printk("on_send_cmd_cb2: %d (cmd_id == %d)\r\n", buf, cmd.cmd_id);
-                    zb_schedule_alarm_cancel(on_send_cmd_cb2, buf, nullptr);
+                    zb_schedule_alarm_cancel(on_send_cmd_timeout2, buf, nullptr);
                     zb_zcl_command_send_status_t *cmd_send_status = buf ? ZB_BUF_GET_PARAM(buf, zb_zcl_command_send_status_t) : nullptr;
                     g_PreAllocBufs.deallocate(cmd.buf);//cmd_send_status memory is still valid
                     cmd.buf = ZB_BUF_INVALID;
