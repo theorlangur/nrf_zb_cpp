@@ -558,7 +558,7 @@ namespace zb
 
     struct reserved_array_additional_cluster_handlers_t
     {
-        constexpr static size_t kMaxEntries = 1;
+        constexpr static size_t kMaxEntries = 3;
         uint8_t size = 0;
         additional_cluster_handlers_t slots[kMaxEntries];
 
