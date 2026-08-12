@@ -1,0 +1,70 @@
+#ifndef ZB_TOOLS_HPP_
+#define ZB_TOOLS_HPP_
+extern "C" {
+#include <zboss_api.h>
+#include <osif/mac_platform.h>
+}
+
+namespace zb
+{
+    struct tx_power{
+        using tx_power_cb = void(*)(zb_ret_t res);
+
+        static zb_ret_t set_tx_power(zb_int8_t power, uint32_t channel_mask, tx_power_cb on_complete = {})
+        {
+            g_cb = on_complete;
+            g_channels_to_set = channel_mask;
+            g_tx_power = power;
+            g_error = RET_OK;
+            g_last_channel = ZB_TRANSCEIVER_START_CHANNEL_NUMBER;
+            for (; g_last_channel <= ZB_TRANSCEIVER_MAX_CHANNEL_NUMBER; g_last_channel++) {
+                if (g_channels_to_set & (1 << g_last_channel)) {
+                    return zb_buf_get_out_delayed_ext(set_tx_power_for_channel, g_last_channel, 0);
+                }
+            }
+            return RET_ERROR;
+        }
+
+    private:
+        static void set_tx_power_for_channel(uint8_t buf, uint16_t channel)
+        {
+            zb_tx_power_params_t *power_params;
+
+            power_params = (zb_tx_power_params_t *)zb_buf_initial_alloc(buf, sizeof(zb_tx_power_params_t));
+
+            power_params->page = ZB_CHANNEL_PAGE0_2_4_GHZ;
+            power_params->channel = channel;
+            power_params->tx_power = g_tx_power;
+            power_params->cb = on_tx_power_set;
+
+            ZB_SCHEDULE_APP_CALLBACK(zb_set_tx_power_async, buf);
+        }
+
+        static void on_tx_power_set(uint8_t param)
+        {
+            //char *status = NULL;
+            zb_tx_power_params_t *power_params = (zb_tx_power_params_t *)zb_buf_begin(param);
+
+            if (g_error < power_params->status)
+                g_error = power_params->status;
+            ++g_last_channel;
+            for (; g_last_channel <= ZB_TRANSCEIVER_MAX_CHANNEL_NUMBER; g_last_channel++) {
+                if (g_channels_to_set & (1 << g_last_channel)) {
+                    set_tx_power_for_channel(param, g_last_channel);
+                    return;
+                }
+            }
+
+            zb_buf_free(param);
+            if (g_cb)
+                g_cb(g_error);
+        }
+
+        inline static tx_power_cb g_cb;
+        inline static uint32_t g_channels_to_set;
+        inline static uint8_t g_last_channel;
+        inline static int8_t g_tx_power;
+        inline static zb_ret_t g_error;
+    };
+}
+#endif
