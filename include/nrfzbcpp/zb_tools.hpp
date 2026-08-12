@@ -37,7 +37,7 @@ namespace zb
             power_params->tx_power = g_tx_power;
             power_params->cb = on_tx_power_set;
 
-            ZB_SCHEDULE_APP_CALLBACK(zb_set_tx_power_async, buf);
+            zigbee_schedule_callback(zb_set_tx_power_async, buf);
         }
 
         static void on_tx_power_set(uint8_t param)
