@@ -1,5 +1,23 @@
 #ifndef ZB_TOOLS_HPP_
 #define ZB_TOOLS_HPP_
+
+//workaround
+typedef enum zb_phy_status_e
+{
+  PHY_BUSY                  = 0x00,
+  PHY_BUSY_RX               = 0x01,
+  PHY_BUSY_TX               = 0x02,
+  PHY_FORCE_TRX_OFF         = 0x03,
+  PHY_IDLE                  = 0x04,
+  PHY_INVALID_PARAMETER     = 0x05,
+  PHY_RX_ON                 = 0x06,
+  PHY_SUCCESS               = 0x07,
+  PHY_TRX_OFF               = 0x08,
+  PHY_TX_ON                 = 0x09,
+  PHY_UNSUPPORTED_ATTRIBUTE = 0x0a,
+  PHY_READ_ONLY             = 0x0b
+} zb_phy_status_t;
+
 extern "C" {
 #include <zboss_api.h>
 #include <osif/mac_platform.h>
